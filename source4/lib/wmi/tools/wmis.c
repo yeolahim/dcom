@@ -163,7 +163,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	WERR_CHECK("IWbemClassObject_Put(CommandLine).");
 
 	methodName.data = "Create";
-	result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, in, &out, 
+	result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, in, &out,
 					  NULL);
 	WERR_CHECK("IWbemServices_ExecMethod.");
 
@@ -203,7 +203,7 @@ int main(int argc, char **argv)
 	printf("3: Monitoring directory C:\\wmi_test_dir_tmp. Please create/delete files in that directory to see notifications, after 4 events program quits.\n");
 	query.data = "SELECT * FROM __InstanceOperationEvent WITHIN 1 WHERE Targetinstance ISA 'CIM_DirectoryContainsFile' and TargetInstance.GroupComponent= 'Win32_Directory.Name=\"C:\\\\\\\\wmi_test_dir_tmp\"'";
 	queryLanguage.data = "WQL";
-	result = IWbemServices_ExecNotificationQuery(pWS, ctx, queryLanguage, 
+	result = IWbemServices_ExecNotificationQuery(pWS, ctx, queryLanguage,
 		query, WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 	WERR_CHECK("WMI query execute.");
 	for (cnt = 0; cnt < 4; ++cnt) {

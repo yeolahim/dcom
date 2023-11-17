@@ -1,21 +1,21 @@
 #!/usr/bin/env python
 
-
+# public_deps='RPC_NDR_OXIDRESOLVER NDR_DCOM RPC_NDR_REMACT ndr_table DCOM_PROXY_DCOM DCOM'
 bld.SAMBA_SUBSYSTEM('WMI',
 	source='wmicore.c wbemdata.c ../../../librpc/gen_ndr/dcom_p.c',
-	public_deps='RPC_NDR_OXIDRESOLVER NDR_DCOM RPC_NDR_REMACT ndr_table DCOM_PROXY_DCOM DCOM'
+	public_deps='RPC_NDR_OXIDRESOLVER NDR_DCOM RPC_NDR_REMACT DCOM'
 	)
 
 
 bld.SAMBA_BINARY('wmic',
 	source='tools/wmic.c',
-	deps='POPT_SAMBA POPT_CREDENTIALS popt WMI'
+	deps='popt WMI'
 	)
 
 
 bld.SAMBA_BINARY('wmis',
 	source='tools/wmis.c',
-	deps='POPT_SAMBA POPT_CREDENTIALS popt WMI'
+	deps='popt WMI'
 	)
 
 
@@ -23,4 +23,3 @@ bld.SAMBA_PYTHON('pywmi',
 	source='wmi_wrap.c',
 	public_deps='LIBCLI_SMB ndr samba-util samba-config WMI'
 	)
-

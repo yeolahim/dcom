@@ -1,5 +1,5 @@
-/* 
- * WMI IDL.  
+/*
+ * WMI IDL.
  * See http://en.wikipedia.org/wiki/Windows_Management_Instrumentation for more information.
  */
 #include "idl_types.h"
@@ -485,7 +485,7 @@ coclass WbemClassObject
 }
 
 [
-	object, 
+	object,
 	uuid("027947e1-d731-11ce-a357-000000000001"),
 	pointer_default(unique)
 ] interface IEnumWbemClassObject : IUnknown
@@ -515,8 +515,8 @@ coclass WbemClassObject
 };
 
 [
-	object, 
-	local, 
+	object,
+	local,
 	uuid("44aca674-e8fc-11d0-a07c-00c04fb68820"),
 	pointer_default(unique)
 ] interface IWbemContext : IUnknown
@@ -712,4 +712,3 @@ interface IWbemObjectSink : IUnknown
 					[in, size_is(lObjectCount)] IWbemClassObject** apObjArray
 				   );
 };
-

@@ -91,4 +91,3 @@ _PUBLIC_ unmarshal_fn dcom_unmarshal_by_clsid(struct GUID *clsid)
 	}
 	return NULL;
 }
-

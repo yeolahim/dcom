@@ -23,7 +23,7 @@
 #include "librpc/gen_ndr/dcom.h"
 #include "librpc/gen_ndr/com_dcom.h"
 #include "librpc/ndr/libndr.h"
-#include "librpc/ndr/libndr_proto.h"
+//#include "librpc/ndr/libndr_proto.h"
 #include "lib/com/com.h"
 #include "lib/com/dcom/dcom.h"
 #include "lib/util/dlinklist.h"
@@ -58,7 +58,7 @@ static enum ndr_err_code marshal(TALLOC_CTX *mem_ctx, struct IUnknown *pv, struc
 		uint32_t ofs;
 		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0x12345678));
 		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0));
-		NDR_CHECK(ndr_push_IWbemClassObject(ndr, NDR_SCALARS | NDR_BUFFERS, wco));
+		//DCOM_TODO: NDR_CHECK(ndr_push_IWbemClassObject(ndr, NDR_SCALARS | NDR_BUFFERS, wco));
 		ofs = ndr->offset;
 		ndr->offset = 4;
 		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, ofs - 8));
@@ -70,7 +70,7 @@ static enum ndr_err_code marshal(TALLOC_CTX *mem_ctx, struct IUnknown *pv, struc
 	o->u_objref.u_custom.size = ndr->offset;
 	mp->size = sizeof(struct OBJREF) - sizeof(union OBJREF_Types) + sizeof(struct u_custom) + o->u_objref.u_custom.size - 4;
 	if (DEBUGLVL(9)) {
-		NDR_PRINT_DEBUG(IWbemClassObject, wco);
+		//DCOM_TODO: NDR_PRINT_DEBUG(IWbemClassObject, wco);
 	}
 	return NDR_ERR_SUCCESS;
 }
@@ -104,7 +104,7 @@ static enum ndr_err_code unmarshal(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct
 	ndr_err = ndr_pull_IWbemClassObject(ndr, NDR_SCALARS | NDR_BUFFERS, wco);
 
 	if (NDR_ERR_CODE_IS_SUCCESS(ndr_err) && (DEBUGLVL(9))) {
-		NDR_PRINT_DEBUG(IWbemClassObject, wco);
+		//DCOM_TODO: NDR_PRINT_DEBUG(IWbemClassObject, wco);
 	}
 
 	if (NDR_ERR_CODE_IS_SUCCESS(ndr_err)) {
@@ -186,9 +186,9 @@ WERROR IWbemClassObject_Get(struct IWbemClassObject *d, TALLOC_CTX *mem_ctx, con
 	for (i = 0; i < d->obj_class->__PROPERTY_COUNT; ++i) {
 		if (!strcmp(d->obj_class->properties[i].property.name, name)) {
 			duplicate_CIMVAR(mem_ctx, &d->instance->data[i], val, d->obj_class->properties[i].property.desc->cimtype);
-			if (cimtype != NULL) 
+			if (cimtype != NULL)
 				*cimtype = d->obj_class->properties[i].property.desc->cimtype;
-			if (flavor != NULL) 
+			if (flavor != NULL)
 				*flavor = 0; /* FIXME:avg implement flavor */
 			return WERR_OK;
 		}

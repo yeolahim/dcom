@@ -58,7 +58,7 @@ void push_object(PyObject **stack, PyObject *o)
 
 WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const char *nspace, const char *user, const char *password, 
 	const char *locale, uint32_t flags, const char *authority, struct IWbemContext* wbem_ctx, struct IWbemServices** services);
-WERROR IEnumWbemClassObject_SmartNext(struct IEnumWbemClassObject *d, TALLOC_CTX *mem_ctx, int32_t lTimeout,uint32_t uCount, 
+WERROR IEnumWbemClassObject_SmartNext(struct IEnumWbemClassObject *d, TALLOC_CTX *mem_ctx, int32_t lTimeout,uint32_t uCount,
 	struct WbemClassObject **apObjects, uint32_t *puReturned);
 
 static PyObject *PyObject_FromCVAR(uint32_t cimtype, union CIMVAR *cvar);
@@ -288,7 +288,7 @@ typedef struct IWbemServices {
     %extend {
     WERROR ExecQuery(TALLOC_CTX *mem_ctx, struct BSTR strQueryLanguage, struct BSTR strQuery, int32_t lFlags, struct IWbemContext *pCtx, struct IEnumWbemClassObject **ppEnum);
     WERROR ExecNotificationQuery(TALLOC_CTX *mem_ctx, struct BSTR strQueryLanguage, struct BSTR strQuery, int32_t lFlags, struct IWbemContext *pCtx, struct IEnumWbemClassObject **ppEnum);
-    WERROR CreateInstanceEnum(TALLOC_CTX *mem_ctx, struct BSTR strClass, 
+    WERROR CreateInstanceEnum(TALLOC_CTX *mem_ctx, struct BSTR strClass,
 	int32_t lFlags, struct IWbemContext *pCtx, struct IEnumWbemClassObject **ppEnum);
     }
 } IWbemServices;

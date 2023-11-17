@@ -26,9 +26,12 @@
 #include "librpc/gen_ndr/com_wmi.h"
 #include "librpc/rpc/dcerpc.h"
 #include "librpc/ndr/ndr_table.h"
+#include "lib/wmi/wmi.h"
 
 struct IWbemServices;
 struct IWbemContext;
+
+const char *wmi_errstr(WERROR werror);
 
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
                             DEBUG(0, ("ERROR: %s\n", msg)); \
@@ -50,9 +53,9 @@ void wmi_init(struct com_context **ctx, struct cli_credentials *credentials,
 }
 
 /** FIXME: Use credentials struct rather than user/password here */
-WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const uint16_t *nspace, 
+WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const uint16_t *nspace,
 			  struct cli_credentials *credentials,
-			  const char *locale, uint32_t flags, const char *authority, 
+			  const char *locale, uint32_t flags, const char *authority,
 			  struct IWbemContext* wbem_ctx, struct IWbemServices** services)
 {
         struct GUID clsid;
