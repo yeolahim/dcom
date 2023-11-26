@@ -202,7 +202,7 @@ error:
 
 char ns[] = "root\\cimv2";
 
-int main(int argc, char **argv_)
+int main(int argc, char **argv)
 {
   TALLOC_CTX *frame = NULL;
 	const char **const_argv = NULL;
@@ -219,7 +219,7 @@ int main(int argc, char **argv_)
 
 	frame = talloc_init("root");
 	//frame = talloc_stackframe();
-	const_argv = discard_const_p(const char *, xargv);
+	const_argv = discard_const_p(const char *, argv);
 
   smb_init_locale();
 	argc = 4;
