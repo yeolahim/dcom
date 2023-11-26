@@ -648,8 +648,6 @@ coclass WbemClassObject
 		[in,ref] GUID *gEWCO,
 		[in] uint32 lTimeOut,
 		[in] uint32 uCount,
-		[in] uint32 unknown,
-		[in,ref] GUID *gWCO,
 		[out,ref] uint32 *puReturned,
 		[out,ref] uint32 *pSize,
 		[out,ref,size_is(,*pSize)] uint8 **pData
@@ -707,8 +705,10 @@ interface IWbemObjectSink : IUnknown
 					 [in] BSTR strParam,
 					 [in] IWbemClassObject* pObjParam
 					);
+/*
 	WERROR Indicate(
 					[in] long lObjectCount,
 					[in, size_is(lObjectCount)] IWbemClassObject** apObjArray
 				   );
+*/
 };

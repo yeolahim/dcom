@@ -40,41 +40,60 @@ const char *wmi_errstr(WERROR werror);
                             DEBUG(1, ("OK   : %s\n", msg)); \
                         }
 
+extern NTSTATUS dcom_proxy_init_IUnknown(TALLOC_CTX *ctx);
+extern NTSTATUS dcom_proxy_init_IWbemServices(TALLOC_CTX *ctx);
+extern NTSTATUS dcom_proxy_init_IEnumWbemClassObject(TALLOC_CTX *ctx);
+extern NTSTATUS dcom_proxy_init_IWbemLevel1Login(TALLOC_CTX *ctx);
+extern NTSTATUS dcom_proxy_init_IWbemWCOSmartEnum(TALLOC_CTX *ctx);
+extern NTSTATUS dcom_proxy_init_IWbemFetchSmartEnum(TALLOC_CTX *ctx);
+extern NTSTATUS dcom_proxy_init_IWbemCallResult(TALLOC_CTX *ctx);
+extern NTSTATUS dcom_proxy_init_IWbemObjectSink(TALLOC_CTX *ctx);
+
 void wmi_init(struct com_context **ctx, struct cli_credentials *credentials,
 			  struct loadparm_context *lp_ctx)
 {
-	dcerpc_init(lp_ctx);
+	dcerpc_init();
 	ndr_table_init();
 
-	/* FIXME: Register DCOM proxies? */
+    com_init_ctx(ctx, lp_ctx, NULL);
+    /* FIXME: Register DCOM proxies? */
+    dcom_proxy_init_IUnknown(*ctx);
+    dcom_proxy_init_IWbemServices(*ctx);
+    dcom_proxy_init_IEnumWbemClassObject(*ctx);
+    dcom_proxy_init_IWbemLevel1Login(*ctx);
+    dcom_proxy_init_IWbemWCOSmartEnum(*ctx);
+    dcom_proxy_init_IWbemFetchSmartEnum(*ctx);
+    dcom_proxy_init_IWbemCallResult(*ctx);
+    dcom_proxy_init_IWbemObjectSink(*ctx);
 
-	com_init_ctx(ctx, NULL);
 	dcom_client_init(*ctx, credentials);
 }
 
 /** FIXME: Use credentials struct rather than user/password here */
-WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const uint16_t *nspace,
+WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, char *nspace,
 			  struct cli_credentials *credentials,
-			  const char *locale, uint32_t flags, const char *authority,
+			  uint16_t *locale, uint32_t flags, const char *authority,
 			  struct IWbemContext* wbem_ctx, struct IWbemServices** services)
 {
         struct GUID clsid;
         struct GUID iid;
         WERROR result;
-	HRESULT coresult;
+        HRESULT hresult;
+        HRESULT coresult;
         struct IUnknown **mqi;
         struct IWbemLevel1Login *pL;
 
         GUID_from_string(CLSID_WBEMLEVEL1LOGIN, &clsid);
         GUID_from_string(COM_IWBEMLEVEL1LOGIN_UUID, &iid);
-        result = dcom_create_object(ctx, &clsid, server, 1, &iid, &mqi, &coresult);
+        hresult = dcom_create_object(ctx, &clsid, server, 1, &iid, &mqi, &coresult);
+        result = W_ERROR(HRES_ERROR_V(hresult));
         WERR_CHECK("dcom_create_object.");
-        result = coresult;
+        result = W_ERROR(HRES_ERROR_V(coresult));
         WERR_CHECK("Create remote WMI object.");
         pL = (struct IWbemLevel1Login *)mqi[0];
         talloc_free(mqi);
 
-        result = IWbemLevel1Login_NTLMLogin(pL, ctx, nspace, locale, flags, wbem_ctx, services);
+        result = IWbemLevel1Login_NTLMLogin(pL, ctx, ((uint16_t*)nspace), locale, flags, wbem_ctx, services);
         WERR_CHECK("Login to remote object.");
 
 	IUnknown_Release((struct IUnknown *)pL, ctx);

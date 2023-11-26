@@ -55,7 +55,7 @@ interface IUnknown
 		[out, iid_is(riid),unique] MInterfacePointer **ppv
 		);
 
-	[call_as(CreateInstance)] WERROR RemoteCreateInstance();
+	[call_as(CreateInstance)] WERROR IClassFactory_RemoteCreateInstance();
 
 	/* Set lock to TRUE when you want to do a lock
 	and set it to FALSE when you want to unlock */
@@ -153,24 +153,6 @@ interface IRemUnknown : IUnknown
 {
 	WERROR ILocalObjectExporter_Foo();
 }
-
-/* Looks like this is the equivalent of .NET's
-   System.Activator class */
-[
-	uuid("000001a0-0000-0000-c000-000000000046"),
-	object
-]
-	interface ISystemActivator : IClassActivator
-{
-	WERROR ISystemActivatorRemoteCreateInstance(
-		[in] hyper unknown1,  /* OXID ? */
-		[in] MInterfacePointer iface1,
-		[in] hyper unknown2,
-		[out] uint32 *unknown3,
-		[out] MInterfacePointer *iface2
-		);
-}
-
 
 
 /* Derived from IRemUnknown, this interface supports Remote Query interface */

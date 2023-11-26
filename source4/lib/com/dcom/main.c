@@ -36,6 +36,81 @@
 
 #define DCOM_NEGOTIATED_PROTOCOLS { EPM_PROTOCOL_TCP, EPM_PROTOCOL_SMB, EPM_PROTOCOL_NCALRPC }
 
+#if 0
+static CLSID CLSID_InstantiationInfo       = {0x000001ab, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+static CLSID CLSID_ServerLocationInfo      = {0x000001a4, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+static CLSID CLSID_ScmRequestInfo          = {0x000001aa, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+static CLSID CLSID_ActivationContextInfo   = {0x000001a5, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
+static CLSID CLSID_ActivationPropertiesIn  = {0x00000338, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+static CLSID CLSID_ActivationPropertiesOut = {0x00000339, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+
+static IID IID_IActivationPropertiesIn   = {0x000001a2, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+static IID IID_IActivationPropertiesOut  = {0x000001a3, 0x0000, 0x0000, {0xc0, 0x00}, {0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+static uint16_t DCOM_NEGOTIATED_PROTOCOLS_SEQ[] = DCOM_NEGOTIATED_PROTOCOLS;
+
+typedef struct tagInstantiationInfoData {
+    CLSID classId;
+    uint32_t classCtx;
+    uint32_t actvflags;
+    int32_t  fIsSurrogate;
+    uint32_t cIID; //[range(1, MAX_REQUESTED_INTERFACES)]
+    uint32_t instFlag;
+    IID* pIID; //[size_is(cIID)]
+    uint32_t thisSize;
+    COMVERSION clientCOMVersion;
+} InstantiationInfoData;
+
+typedef struct _customREMOTE_REQUEST_SCM_INFO {
+    uint32_t ClientImpLevel;
+    unsigned short cRequestedProtseqs; // [range(0, MAX_REQUESTED_PROTSEQS)]
+    unsigned short pRequestedProtseqs[ARRAY_SIZE(DCOM_NEGOTIATED_PROTOCOLS_SEQ)]; // [size_is(cRequestedProtseqs)]
+} customREMOTE_REQUEST_SCM_INFO;
+
+typedef struct tagScmRequestInfoData {
+   uint32_t* pdwReserved;
+   customREMOTE_REQUEST_SCM_INFO remoteRequest;
+ } ScmRequestInfoData;
+
+typedef struct tagLocationInfoData {
+    char* machineName;
+    uint32_t processId;
+    uint32_t apartmentId;
+    uint32_t contextId;
+} LocationInfoData;
+
+typedef struct tagActivationContextInfoData {
+    int32_t clientOK;
+    int32_t bReserved1;
+    uint32_t dwReserved1;
+    uint32_t dwReserved2;
+    struct MInterfacePointer* pIFDClientCtx;
+    struct MInterfacePointer* pIFDPrototypeCtx;
+} ActivationContextInfoData;
+
+typedef struct tagCustomHeader {
+    uint32_t totalSize;
+    uint32_t headerSize;
+    uint32_t dwReserved;
+    uint32_t destCtx;
+    uint32_t cIfs; // [range(MIN_ACTPROP_LIMIT, MAX_ACTPROP_LIMIT)]
+    CLSID classInfoClsid;
+    CLSID* pclsid; // [size_is(cIfs)]
+    uint32_t* pSizes; // [size_is(cIfs)]
+    uint32_t* pdwReserved;
+} CustomHeader;
+
+typedef struct tagActivationPropertiesIn {
+    uint32_t dwSize;
+    uint32_t dwReserved;
+    CustomHeader customHeader;
+    InstantiationInfoData instantiationInfo;
+    ScmRequestInfoData scmRequestInfo;
+    LocationInfoData locationInfo;
+    ActivationContextInfoData activationContextInfo;
+} ActivationPropertiesIn;
+#endif
+
 static NTSTATUS dcerpc_binding_from_STRINGBINDING(TALLOC_CTX *mem_ctx, struct dcerpc_binding **b_out, struct STRINGBINDING *bd)
 {
 	const char *tstr;
@@ -261,6 +336,8 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 	struct COMVERSION ServerVersion;
 	struct MInterfacePointer **ifaces;
 	TALLOC_CTX *loc_ctx;
+  WERROR result;
+  struct ORPCTHIS this_object;
 
 	status = dcom_connect_host(ctx, &p, server);
 	if (NT_STATUS_IS_ERR(status)) {
@@ -291,21 +368,230 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 	r.out.ifaces = ifaces;
 	r.out.results = results;
 
-	//DCOM_TODO: status = dcerpc_RemoteActivation(p, loc_ctx, &r);
-	talloc_free(p);
+#if 1
+///////
+  ZERO_STRUCT(this_object);
+	this_object.version.MajorVersion = COM_MAJOR_VERSION;
+	this_object.version.MinorVersion = COM_MINOR_VERSION;
+  this_object.flags = 1;
+	this_object.cid = GUID_random();
+  this_object.extensions = NULL;
+  //struct MInterfacePointer objectStorage;
+  printf("Running RemoteActivation\n"); //DCOM_TODO_REMOVE_ME
+
+	status = dcerpc_RemoteActivation(p->binding_handle, loc_ctx
+        , this_object
+        , &that
+        , *clsid
+        , NULL // pwszObjectName
+        , NULL // pObjectStorage
+        , RPC_C_IMP_LEVEL_IDENTIFY
+        , 0 // Mode
+        , num_ifaces
+        , iid
+        , ARRAY_SIZE(protseq)
+        , protseq
+        , &oxid
+        , &pds
+        , &ipidRemUnknown
+        , &AuthnHint
+        , &ServerVersion
+        , &hr
+        , ifaces
+        , results
+        , &result);
+#else
+
+// CLSID_InstantiationInfo       = string_to_bin('000001ab-0000-0000-c000-000000000046')
+// CLSID_ScmRequestInfo          = string_to_bin('000001aa-0000-0000-c000-000000000046')
+// CLSID_ServerLocationInfo      = string_to_bin('000001a4-0000-0000-c000-000000000046')
+// CLSID_ActivationContextInfo   = string_to_bin('000001a5-0000-0000-c000-000000000046') // Optional
+
+//IID_IActivationPropertiesIn   = uuidtup_to_bin(('000001a2-0000-0000-c000-000000000046','0.0'))
+//IID_IActivationPropertiesOut  = uuidtup_to_bin(('000001a3-0000-0000-c000-000000000046','0.0'))
+
+//CLSID_ActivationPropertiesIn  = string_to_bin('00000338-0000-0000-c000-000000000046')
+//CLSID_ActivationPropertiesOut = string_to_bin('00000339-0000-0000-c000-000000000046')
+///////
+    struct ORPCTHIS this_object;
+    ZERO_STRUCT(this_object);
+	this_object.version.MajorVersion = COM_MAJOR_VERSION;
+	this_object.version.MinorVersion = COM_MINOR_VERSION;
+    this_object.flags = 1;
+	this_object.cid = GUID_random();
+    this_object.extensions = NULL;
+
+    ActivationPropertiesIn activationProperties;
+    activationProperties.dwSize = 0; /// !!!!!!!!!!!
+    activationProperties.dwReserved = 0;
+    activationProperties.customHeader.destCtx = 2; // ?
+    activationProperties.customHeader.pdwReserved = NULL;
+    //
+    activationProperties.instantiationInfo.classId = *clsid;
+    activationProperties.instantiationInfo.classCtx = 0;
+    activationProperties.instantiationInfo.actvflags = 0;
+    activationProperties.instantiationInfo.fIsSurrogate = 0;
+    activationProperties.instantiationInfo.cIID = num_ifaces;
+    activationProperties.instantiationInfo.pIID = iid;
+    activationProperties.instantiationInfo.thisSize = 0;
+	activationProperties.instantiationInfo.clientCOMVersion.MajorVersion = COM_MAJOR_VERSION;
+	activationProperties.instantiationInfo.clientCOMVersion.MinorVersion = COM_MINOR_VERSION;
+    //
+    activationProperties.scmRequestInfo.pdwReserved = NULL;
+    activationProperties.scmRequestInfo.remoteRequest.ClientImpLevel = RPC_C_IMP_LEVEL_IDENTIFY;
+    activationProperties.scmRequestInfo.remoteRequest.cRequestedProtseqs = ARRAY_SIZE(DCOM_NEGOTIATED_PROTOCOLS_SEQ);
+    memcpy(activationProperties.scmRequestInfo.remoteRequest.pRequestedProtseqs
+        , DCOM_NEGOTIATED_PROTOCOLS_SEQ, sizeof(activationProperties.scmRequestInfo.remoteRequest.pRequestedProtseqs));
+    //
+    activationProperties.locationInfo.machineName = NULL;
+    activationProperties.locationInfo.processId = 0;
+    activationProperties.locationInfo.apartmentId = 0;
+    activationProperties.locationInfo.contextId = 0;
+    //
+    activationProperties.activationContextInfo.clientOK = 0;
+    activationProperties.activationContextInfo.bReserved1 = 0;
+    activationProperties.activationContextInfo.dwReserved1 = 0;
+    activationProperties.activationContextInfo.dwReserved2 = 0;
+    activationProperties.activationContextInfo.pIFDClientCtx = NULL;
+    activationProperties.activationContextInfo.pIFDPrototypeCtx = NULL;
+
+    struct MInterfacePointer actProperties;
+    actProperties.size = 0; /// !!!!!!!!!!!
+    actProperties.obj.signature = 0x574f454d;
+    actProperties.obj.flags = OBJREF_CUSTOM;
+    actProperties.obj.iid = IID_IActivationPropertiesIn;
+    struct u_custom* u_custom = &actProperties.obj.u_objref.u_custom;
+    u_custom->clsid = CLSID_ActivationPropertiesIn;
+    u_custom->cbExtension = 0;
+    u_custom->size = sizeof(activationProperties); // unused. This can be set to any arbitrary value when sent and MUST be ignored on receipt.
+    u_custom->pData = (uint8_t*)&activationProperties;
+
+    struct MInterfacePointer *outActProperties;
+    printf("Running RemoteCreateInstance\n"); //DCOM_TODO_REMOVE_ME
+    status = dcerpc_RemoteCreateInstance(p->binding_handle, loc_ctx
+        , this_object
+        , &that
+        , NULL
+        , &actProperties
+        , &outActProperties
+        , &result
+    );
+// 416
+    // [77, 69, 79, 87, 4, 0, 0, 0, 162, 1, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 70, 56, 3, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 0, 120, 1, 0, 0, 104, 1, 0, 0, 0, 0, 0, 0, 1, 16, 8, 0, 204, 204, 204, 204, 136, 0, 0, 0, 204, 204, 204, 204, 104, 1, 0, 0, 152, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 210, 224, 0, 0, 109, 71, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 171, 1, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 70, 165, 1, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 70, 164, 1, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 70, 170, 1, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 70, 4, 0, 0, 0, 88, 0, 0, 0, 40, 0, 0, 0, 32, 0, 0, 0, 48, 0, 0, 0, 1, 16, 8, 0, 204, 204, 204, 204, 68, 0, 0, 0, 204, 204, 204, 204, 94, 240, 195, 139, 107, 216, 208, 17, 160, 117, 0, 192, 79, 182, 136, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 74, 239, 0, 0, 0, 0, 0, 0, 5, 0, 7, 0, 1, 0, 0, 0, 24, 173, 9, 243, 106, 216, 208, 17, 160, 117, 0, 192, 79, 182, 136, 32, 250, 250, 250, 250, 1, 16, 8, 0, 204, 204, 204, 204, 24, 0, 0, 0, 204, 204, 204, 204, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 16, 8, 0, 204, 204, 204, 204, 16, 0, 0, 0, 204, 204, 204, 204, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 16, 8, 0, 204, 204, 204, 204, 26, 0, 0, 0, 204, 204, 204, 204, 0, 0, 0, 0, 245, 132, 0, 0, 0, 0, 0, 0, 1, 0, 170, 170, 24, 153, 0, 0, 1, 0, 0, 0, 7, 0, 250, 250, 250, 250, 250, 250]
+    // signature: [           '0x4d', '0x45', '0x4f', '0x57'
+    // flags: OBJREF_CUSTOM , '0x4', '0x0', '0x0', '0x0'
+    // iid: IID_IActivationPropertiesIn , '0xa2', '0x1', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0xc0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x46'
+    // clsid: CLSID_ActivationPropertiesIn , '0x38', '0x3', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0xc0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x46'
+    // cbExtension: , '0x0', '0x0', '0x0', '0x0'
+    // size: , '0x78', '0x1', '0x0', '0x0'
+//  368=0x170
+    /// blob
+    // activationProperties
+    // dwSize: , '0x68', '0x1', '0x0', '0x0'
+    // dwReserved:, '0x0', '0x0', '0x0', '0x0'
+// 360=0x168
+    //
+    // , '0x1', '0x10', '0x8', '0x0'
+    // , '0xcc', '0xcc', '0xcc', '0xcc'
+    // , '0x88', '0x0', '0x0', '0x0'
+    // , '0xcc', '0xcc', '0xcc', '0xcc'
+    // CustomHeader
+    // totalSize:, '0x68', '0x1', '0x0', '0x0'
+    // headerSize:, '0x98', '0x0', '0x0', '0x0'
+    // dwReserved: , '0x0', '0x0', '0x0', '0x0'
+    // destCtx: , '0x2', '0x0', '0x0', '0x0'
+    // cIfs: , '0x4', '0x0', '0x0', '0x0'
+    // classInfoClsid: , '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0'
+    // pclsid:, '0xd2', '0xe0', '0x0', '0x0'
+    // pSizes: , '0x6d', '0x47', '0x0', '0x0'
+    // pdwReserved:, '0x0', '0x0', '0x0', '0x0'
+    //
+    // pclsid array
+    // , '0x4', '0x0', '0x0', '0x0'
+    // CLSID_InstantiationInfo , '0xab', '0x1', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0xc0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x46'
+    // CLSID_ActivationContextInfo, '0xa5', '0x1', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0xc0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x46'
+    // CLSID_ServerLocationInfo, '0xa4', '0x1', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0xc0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x46'
+    // CLSID_ScmRequestInfo, '0xaa', '0x1', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0xc0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x0', '0x46'
+    // pSizes array
+    // , '0x4', '0x0', '0x0', '0x0'
+    // , '0x58', '0x0', '0x0', '0x0'
+    // , '0x28', '0x0', '0x0', '0x0'
+    // , '0x20', '0x0', '0x0', '0x0'
+    // , '0x30', '0x0', '0x0', '0x0'
+    //
+    // , '0x1', '0x10', '0x8', '0x0'
+    // , '0xcc', '0xcc', '0xcc', '0xcc'
+    // , '0x44', '0x0', '0x0', '0x0'
+    // , '0xcc', '0xcc', '0xcc', '0xcc'
+    // InstantiationInfoData
+    // classId: CLSID_WbemLevel1Login, '0x5e', '0xf0', '0xc3', '0x8b', '0x6b', '0xd8', '0xd0', '0x11', '0xa0', '0x75', '0x0', '0xc0', '0x4f', '0xb6', '0x88', '0x20'
+    // classCtx: , '0x0', '0x0', '0x0', '0x0'
+    // actvflags: , '0x0', '0x0', '0x0', '0x0'
+    // fIsSurrogate: , '0x0', '0x0', '0x0', '0x0'
+    // cIID: , '0x1', '0x0', '0x0', '0x0'
+    // instFlag: , '0x0', '0x0', '0x0', '0x0'
+    // , '0x4a', '0xef', '0x0', '0x0'
+    // , '0x0', '0x0', '0x0', '0x0'
+    // , '0x5', '0x0', '0x7', '0x0'
+    // iid array
+    // , '0x1', '0x0', '0x0', '0x0'
+    // IID_IWbemLevel1Login , '0x18', '0xad', '0x9', '0xf3', '0x6a', '0xd8', '0xd0', '0x11', '0xa0', '0x75', '0x0', '0xc0', '0x4f', '0xb6', '0x88', '0x20'
+    // pad: , '0xfa', '0xfa', '0xfa', '0xfa'
+    //
+    // , '0x1', '0x10', '0x8', '0x0'
+    // , '0xcc', '0xcc', '0xcc', '0xcc'
+    // , '0x18', '0x0', '0x0', '0x0'
+    // , '0xcc', '0xcc', '0xcc', '0xcc'
+    // ActivationContextInfoData
+    // clientOK:, '0x0', '0x0', '0x0', '0x0'
+    // bReserved1:, '0x0', '0x0', '0x0', '0x0'
+    // dwReserved1:, '0x0', '0x0', '0x0', '0x0'
+    // dwReserved2:, '0x0', '0x0', '0x0', '0x0'
+    // pIFDClientCtx:, '0x0', '0x0', '0x0', '0x0'
+    // pIFDPrototypeCtx:, '0x0', '0x0', '0x0', '0x0'
+    //
+    //, '0x1', '0x10', '0x8', '0x0'
+    //, '0xcc', '0xcc', '0xcc', '0xcc'
+    //, '0x10', '0x0', '0x0', '0x0'
+    //, '0xcc', '0xcc', '0xcc', '0xcc'
+    // LocationInfoData
+    //, '0x0', '0x0', '0x0', '0x0'
+    //, '0x0', '0x0', '0x0', '0x0'
+    //, '0x0', '0x0', '0x0', '0x0'
+    //, '0x0', '0x0', '0x0', '0x0'
+    //
+    //, '0x1', '0x10', '0x8', '0x0'
+    //, '0xcc', '0xcc', '0xcc', '0xcc'
+    //, '0x1a', '0x0', '0x0', '0x0'
+    //, '0xcc', '0xcc', '0xcc', '0xcc'
+    // ScmRequestInfoData
+    // pdwReserved: , '0x0', '0x0', '0x0', '0x0'
+    // remoteRequest:, '0xf5', '0x84', '0x0', '0x0'
+    //, '0x0', '0x0', '0x0', '0x0'
+    //, '0x1', '0x0', ///  '0xaa', '0xaa'
+    //, '0x18', '0x99', '0x0', '0x0'
+    //, pRequestedProtseqs array
+    //, '0x1', '0x0', '0x0', '0x0'
+    //, '0x7', '0x0'
+    // pad: , '0xfa', '0xfa', '0xfa', '0xfa', '0xfa', '0xfa']
+#endif
+    printf("Had run RemoteActivation %p\n", p->binding_handle); //DCOM_TODO_REMOVE_ME
 
 	if(NT_STATUS_IS_ERR(status)) {
 		DEBUG(1, ("Error while running RemoteActivation %s\n", nt_errstr(status)));
+        printf("Error 0 while running RemoteActivation %s\n", nt_errstr(status)); //DCOM_TODO_REMOVE_ME
 		hr = HRES_ERROR(W_ERROR_V(ntstatus_to_werror(status)));
 		goto end;
 	}
 
-	if(!W_ERROR_IS_OK(r.out.result)) {
-		hr = HRES_ERROR(W_ERROR_V(r.out.result));
+	if(!W_ERROR_IS_OK(result)) {
+		hr = HRES_ERROR(W_ERROR_V(result));
+        printf("Error 1 while running RemoteActivation 0x%d\n", W_ERROR_V(result)); //DCOM_TODO_REMOVE_ME
 		goto end;
 	}
 
 	if(!HRES_IS_OK(hr)) {
+        printf("Error 2 while running RemoteActivation 0x%x\n", HRES_ERROR_V(hr)); //DCOM_TODO_REMOVE_ME
 		goto end;
 	}
 
@@ -415,10 +701,9 @@ int is_ip_binding(const char* s)
 	return 1;
 }
 
-NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
+static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, struct GUID* iid, struct dcerpc_pipe **pp)
 {
-	struct dcerpc_binding *binding;
-	struct GUID iid;
+  struct dcerpc_binding *binding;
 	//DCOM_TODO: uint64_t oxid;
 	NTSTATUS status;
 	int i, j, isimilar;
@@ -426,19 +711,18 @@ NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
 	struct dcom_object_exporter *ox;
 	const struct ndr_interface_table *table;
 
-	ox = object_exporter_by_oxid(iface->ctx, iface->obj.u_objref.u_standard.std.oxid);
+	ox = object_exporter_by_oxid(ctx, obj->u_objref.u_standard.std.oxid);
 	if (!ox) {
 		DEBUG(0, ("dcom_get_pipe: OXID not found\n"));
 		return NT_STATUS_NOT_SUPPORTED;
 	}
 
 	p = ox->pipe;
-	
-	iid = iface->vtable->iid;
-	table = ndr_table_by_uuid(&iid);
+
+	table = ndr_table_by_uuid(iid);
 	if (table == NULL) {
 		char *guid_str;
-		guid_str = GUID_string(NULL, &iid);
+		guid_str = GUID_string(NULL, iid);
 		DEBUG(0,(__location__": dcom_get_pipe - unrecognized interface{%s}\n", guid_str));
 		talloc_free(guid_str);
 		return NT_STATUS_NOT_SUPPORTED;
@@ -450,13 +734,13 @@ NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
 	}
 
 	if (p) {
-		if (!GUID_equal(&p->syntax.uuid, &iid)) {
-			ox->pipe->syntax.uuid = iid;
+		if (!GUID_equal(&p->syntax.uuid, iid)) {
+			ox->pipe->syntax.uuid = *iid;
 
 			/* interface will always be present, so
 			 * idl_iface_by_uuid can't return NULL */
 			/* status = dcerpc_secondary_context(p, &p2, idl_iface_by_uuid(&iid)); */
-			status = dcerpc_alter_context(p, p, &ndr_table_by_uuid(&iid)->syntax_id, &p->transfer_syntax);
+			status = dcerpc_alter_context(p, p, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
 		} else
 			status = NT_STATUS_OK;
 		*pp = p;
@@ -478,7 +762,7 @@ NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
 			continue;
 		}
 		DEBUG(9, ("dcom_get_pipe: Trying stringbinding %s\n", ox->bindings->stringbindings[j]->NetworkAddr));
-		status = dcerpc_binding_from_STRINGBINDING(iface->ctx, &binding,
+		status = dcerpc_binding_from_STRINGBINDING(ctx, &binding,
 							   ox->bindings->stringbindings[j]);
 		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(1, ("Error parsing string binding"));
@@ -487,11 +771,11 @@ NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
 			binding->flags |= DCERPC_AUTH_NTLM | DCERPC_SIGN;
 			if (DEBUGLVL(11))
 				binding->flags |= DCERPC_DEBUG_PRINT_BOTH;
-			status = dcerpc_pipe_connect_b(iface->ctx->event_ctx, &p, binding,
-						       ndr_table_by_uuid(&iid),
-						       dcom_get_server_credentials(iface->ctx, binding->host),
-							   iface->ctx->event_ctx, iface->ctx->lp_ctx);
-			talloc_unlink(iface->ctx, binding);
+			status = dcerpc_pipe_connect_b(ctx->event_ctx, &p, binding,
+						       ndr_table_by_uuid(iid),
+						       dcom_get_server_credentials(ctx, binding->host),
+							   ctx->event_ctx, ctx->lp_ctx);
+			talloc_unlink(ctx, binding);
 		}
 		if (NT_STATUS_IS_OK(status)) break;
 	}
@@ -502,10 +786,26 @@ NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
 	}
 
 	//DCOM_TODO: DEBUG(2, ("Successfully connected to OXID %llx\n", (long long)oxid));
-	
+
 	ox->pipe = *pp = p;
 
 	return NT_STATUS_OK;
+}
+
+NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct GUID* iid, struct dcerpc_binding_handle **ph)
+{
+  struct dcerpc_pipe *p = NULL;
+  NTSTATUS status = dcom_get_pipe_impl(ctx, obj, iid, &p);
+	if (NT_STATUS_IS_OK(status)) {
+		*ph = p->binding_handle;
+		return NT_STATUS_OK;
+	}
+	return NT_STATUS(-1);
+}
+
+NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
+{
+    return dcom_get_pipe_impl(iface->ctx, &iface->obj, &iface->vtable->iid, pp);
 }
 
 WERROR dcom_OBJREF_from_IUnknown(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct IUnknown *p)
@@ -533,6 +833,11 @@ WERROR dcom_OBJREF_from_IUnknown(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct I
 	}
 
 	return W_ERROR(NT_STATUS_V(NT_STATUS_OK));
+}
+
+WERROR dcom_IUnknown_from_MIP(struct com_context *ctx, struct IUnknown **_p, struct MInterfacePointer *_mi)
+{
+    return dcom_IUnknown_from_OBJREF(ctx, _p, &_mi->obj);
 }
 
 WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, struct OBJREF *o)
@@ -572,7 +877,7 @@ WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, 
 		/* FIXME: Add object to list of objects to ping */
 /*FIXME		p->vtable = dcom_vtable_by_clsid(&o->u_objref.u_handler.clsid);*/
 		/* FIXME: Do the custom unmarshaling call */
-	
+
 		*_p = p;
 		return W_ERROR(NDR_ERR_BAD_SWITCH);
 		

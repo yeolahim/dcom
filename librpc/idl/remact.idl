@@ -44,3 +44,23 @@ interface IRemoteActivation
 		[out,size_is(Interfaces)] HRESULT results[]
 		);
 }
+
+[
+	uuid("000001a0-0000-0000-c000-000000000046"),
+	pointer_default(unique),
+	endpoint("ncalrpc:", "ncacn_ip_tcp:[135]", "ncacn_np:[\\pipe\\epmapper]")
+]
+interface IRemoteSCMActivator
+{
+    WERROR IRemoteSCMActivator_Method0 ();
+    WERROR IRemoteSCMActivator_Method1 ();
+    WERROR IRemoteSCMActivator_Method2 ();
+    WERROR IRemoteSCMActivator_Method3 ();
+    WERROR RemoteCreateInstance(
+        [in] ORPCTHIS this_object,
+        [out,ref] ORPCTHAT* that,
+        [in, unique] MInterfacePointer* pUnkOuter,
+        [in, unique] MInterfacePointer* pActProperties,
+        [out] MInterfacePointer** ppActProperties
+    );
+}
