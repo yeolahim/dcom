@@ -24,13 +24,14 @@
 #include "lib/events/events.h"
 #include "librpc/gen_ndr/com_dcom.h"
 
-WERROR com_init_ctx(struct com_context **ctx, struct tevent_context *event_ctx)
+WERROR com_init_ctx(struct com_context **ctx, struct loadparm_context *lp_ctx, struct tevent_context *event_ctx)
 {
 	*ctx = talloc(NULL, struct com_context);
 	if (event_ctx == NULL) {
 		event_ctx = samba_tevent_context_init(*ctx);
 	}
 	(*ctx)->event_ctx = event_ctx;
+    (*ctx)->lp_ctx = lp_ctx;
 	return WERR_OK;
 }
 

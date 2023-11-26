@@ -45,7 +45,8 @@ sub ParseRegFunc($)
 {
 	my $interface = shift;
 
-	$res .= "static NTSTATUS dcom_proxy_$interface->{NAME}_init(TALLOC_CTX *ctx)
+	$res .= "NTSTATUS dcom_proxy_init_$interface->{NAME}(TALLOC_CTX *ctx);\n";
+	$res .= "NTSTATUS dcom_proxy_init_$interface->{NAME}(TALLOC_CTX *ctx)
 {
 	struct $interface->{NAME}_vtable *proxy_vtable = talloc(ctx, struct $interface->{NAME}_vtable);
 ";
@@ -63,7 +64,7 @@ sub ParseRegFunc($)
 		return NT_STATUS_FOOBAR;
 	}
 	
-	memcpy(&proxy_vtable, base_vtable, sizeof(struct $interface->{BASE}_vtable));
+	memcpy(proxy_vtable, base_vtable, sizeof(struct $interface->{BASE}_vtable));
 
 ";
 	}
@@ -90,43 +91,61 @@ sub ParseFunction($$)
 
 	my $tn = mapTypeName($fn->{RETURN_TYPE});
 
+    my $w_error = "NT_STATUS_V(status)";
+	if ($fn->{RETURN_TYPE} eq "WERROR") {
+		$w_error = "W_ERROR(NT_STATUS_V(status))";
+	}
+	if ($fn->{RETURN_TYPE} eq "void") {
+		$w_error = "";
+	}
+
 	$res.="
 static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TALLOC_CTX *mem_ctx" . Parse::Pidl::Samba4::COM::Header::GetArgumentProtoList($fn) . ")
 {
-	struct dcerpc_pipe *p;
-	NTSTATUS status = dcom_get_pipe(d, &p);
+	struct dcerpc_binding_handle *h;
+	NTSTATUS status = dcom_binding_handle(d->ctx, &d->obj, &d->vtable->iid, &h);
 	struct $name r;
-	struct rpc_request *req;
+	// struct rpc_request *req;
 
 	if (NT_STATUS_IS_ERR(status)) {
-		return status;
+		return $w_error;
 	}
 
 	NDR_ZERO_STRUCT(r.in.ORPCthis);
 	r.in.ORPCthis.version.MajorVersion = COM_MAJOR_VERSION;
 	r.in.ORPCthis.version.MinorVersion = COM_MINOR_VERSION;
 ";
-	
+
 	# Put arguments into r
 	foreach my $a (@{$fn->{ELEMENTS}}) {
 		next unless (has_property($a, "in"));
 		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
-			$res .="\tNDR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &r.in.$a->{NAME}.obj, $a->{NAME}));\n";
+			if (has_property($a, "out")) {
+				$res .="\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &(*(r.in.$a->{NAME}))->obj, (struct IUnknown*)(*$a->{NAME})));\n";
+			} else {
+				$res .="\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &r.in.$a->{NAME}->obj, (struct IUnknown*)$a->{NAME}));\n";
+			}
 		} else {
-			$res .= "\tr.in.$a->{NAME} = $a->{NAME};\n";
+			if (has_property($a, "string")) {
+				$res .= "\tr.in.$a->{NAME} = (const char*)$a->{NAME};\n";
+			} else {
+				$res .= "\tr.in.$a->{NAME} = $a->{NAME};\n";
+			}
 		}
 	}
 
 	$res .="
-	if (p->conn->flags & DCERPC_DEBUG_PRINT_IN) {
-		NDR_PRINT_IN_DEBUG($name, &r);		
+#if 0
+	if (h->conn->flags & DCERPC_DEBUG_PRINT_IN) {
+		NDR_PRINT_IN_DEBUG($name, &r);
 	}
-
-	status = dcerpc_ndr_request(p, &d->ipid, &ndr_table_$interface->{NAME}, NDR_$uname, mem_ctx, &r);
-
+#endif
+	status = dcerpc_binding_handle_call(h, NULL, &ndr_table_$interface->{NAME}, NDR_$uname, mem_ctx, &r);
+#if 0
 	if (NT_STATUS_IS_OK(status) && (p->conn->flags & DCERPC_DEBUG_PRINT_OUT)) {
-		NDR_PRINT_OUT_DEBUG($name, r);		
+		NDR_PRINT_OUT_DEBUG($name, &r);
 	}
+#endif
 
 ";
 
@@ -135,9 +154,9 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 		next unless (has_property($a, "out"));
 
 		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
-			$res .="\tNDR_CHECK(dcom_IUnknown_from_OBJREF(d->ctx, &$a->{NAME}, r.out.$a->{NAME}.obj));\n";
+			$res .="\tWERROR_CHECK(dcom_IUnknown_from_MIP(d->ctx, (struct IUnknown**)$a->{NAME}, *r.out.$a->{NAME}));\n";
 		} else {
-			$res .= "\t*$a->{NAME} = r.out.$a->{NAME};\n";
+			$res .= "\t*$a->{NAME} = *r.out.$a->{NAME};\n";
 		}
 
 	}
@@ -146,10 +165,17 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 		$res .= "\tif (NT_STATUS_IS_OK(status)) status = r.out.result;\n";
 	}
 
-	$res .= 
+	if ($fn->{RETURN_TYPE} eq "void") {
+		$res .=
+	"
+	return;
+}\n\n";
+	} else {
+	    $res .=
 	"
 	return r.out.result;
 }\n\n";
+    }
 }
 
 #####################################################################

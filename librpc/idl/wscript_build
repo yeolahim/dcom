@@ -65,7 +65,7 @@ bld.SAMBA_PIDL_LIST('PIDL',
 # The interface names here are not the same as the IDL name, so the
 # auto-generation of the fuzzer fails to link
 bld.SAMBA_PIDL_LIST('PIDL',
-                    'wmi.idl dcom.idl',
+                    '''wmi.idl dcom.idl''',
                     options='--header --ndr-parser --server --client --dcom-proxy --com-header',
                     output_dir='../gen_ndr',
                     generate_fuzzers=False)

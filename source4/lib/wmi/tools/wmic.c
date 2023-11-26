@@ -19,7 +19,8 @@
 */
 
 #include "includes.h"
-#include "lib/cmdline/popt_common.h"
+#include "third_party/popt/popt.h"
+#include "lib/cmdline/cmdline.h"
 #include "librpc/rpc/dcerpc.h"
 #include "librpc/gen_ndr/ndr_oxidresolver.h"
 #include "librpc/gen_ndr/ndr_oxidresolver_c.h"
@@ -38,59 +39,101 @@ struct program_args {
     char *hostname;
     char *query;
     char *ns;
+    char *delim;
+    struct cli_credentials *credentials;
 };
 
-static void parse_args(int argc, char *argv[], struct program_args *pmyargs)
+static void parse_args(int argc, const char *argv[],
+                TALLOC_CTX *mem_ctx,
+                struct program_args *pmyargs)
 {
     poptContext pc;
     int opt, i;
 
     int argc_new;
     char **argv_new;
+    bool ok;
 
     struct poptOption long_options[] = {
-	POPT_AUTOHELP
-	POPT_COMMON_SAMBA
-	POPT_COMMON_CONNECTION
-	POPT_COMMON_CREDENTIALS
-	POPT_COMMON_VERSION
-	{"namespace", 0, POPT_ARG_STRING, &pmyargs->ns, 0,
-	 "WMI namespace, default to root\\cimv2", 0},
-	POPT_TABLEEND
+        POPT_AUTOHELP
+        POPT_COMMON_SAMBA
+        POPT_COMMON_CONNECTION
+        POPT_COMMON_CREDENTIALS
+        POPT_COMMON_VERSION
+        {
+            .longName = "namespace",
+            .shortName = 0,
+            .argInfo = POPT_ARG_STRING,
+            .arg = &pmyargs->ns,
+            .val = 0,
+            .descrip = "WMI namespace, default to root\\cimv2",
+            .argDescrip = NULL
+        },
+        {
+            .longName = "delimiter",
+            .shortName = 0,
+            .argInfo = POPT_ARG_STRING,
+            .arg = &pmyargs->delim,
+            .val = 0,
+            .descrip = "delimiter to use when querying multiple values, default to '|'",
+            .argDescrip = NULL
+        },
+        POPT_TABLEEND
     };
+    ZERO_STRUCTP(pmyargs);
+    ok = samba_cmdline_init(mem_ctx,
+        SAMBA_CMDLINE_CONFIG_CLIENT,
+        false /* require_smbconf */);
+    if (!ok) {
+        DBG_ERR("Failed to init cmdline parser!\n");
+        TALLOC_FREE(mem_ctx);
+        exit(1);
+    }
 
-    pc = poptGetContext("wmi", argc, (const char **) argv,
-	        long_options, POPT_CONTEXT_KEEP_FIRST);
+    pc = samba_popt_get_context(getprogname(),
+        argc,
+        argv,
+        long_options,
+        POPT_CONTEXT_KEEP_FIRST);
+    if (pc == NULL) {
+        DBG_ERR("Failed to setup popt context!\n");
+        TALLOC_FREE(mem_ctx);
+        exit(1);
+    }
 
     poptSetOtherOptionHelp(pc, "//host query\n\nExample: wmic -U [domain/]adminuser%password //host \"select * from Win32_ComputerSystem\"");
 
     while ((opt = poptGetNextOpt(pc)) != -1) {
-	poptPrintUsage(pc, stdout, 0);
-	poptFreeContext(pc);
-	exit(1);
+        poptPrintHelp(pc, stdout, 0);
+        poptFreeContext(pc);
+        exit(1);
     }
 
     argv_new = discard_const_p(char *, poptGetArgs(pc));
 
     argc_new = argc;
     for (i = 0; i < argc; i++) {
-	if (argv_new[i] == NULL) {
-	    argc_new = i;
-	    break;
-	}
+        if (argv_new[i] == NULL) {
+            argc_new = i;
+            break;
+        }
     }
 
-    if (argc_new != 3 || argv_new[1][0] != '/'
-	|| argv_new[1][1] != '/') {
-	poptPrintUsage(pc, stdout, 0);
-	poptFreeContext(pc);
-	exit(1);
+    if (argc_new != 3
+        || strncmp(argv_new[1], "//", 2) != 0) {
+        poptPrintHelp(pc, stdout, 0);
+        poptFreeContext(pc);
+        exit(1);
     }
 
+    pmyargs->credentials = samba_cmdline_get_creds();
+
+    /* skip over leading "//" in host name */
     pmyargs->hostname = argv_new[1] + 2;
     pmyargs->query = argv_new[2];
     poptFreeContext(pc);
 }
+
 
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
 			    DEBUG(0, ("ERROR: %s\n", msg)); \
@@ -113,48 +156,54 @@ static void parse_args(int argc, char *argv[], struct program_args *pmyargs)
 	return talloc_asprintf_append(r, ")");\
 }
 
+char *string_CIMVAR(TALLOC_CTX *mem_ctx, union CIMVAR *v, enum CIMTYPE_ENUMERATION cimtype);
 char *string_CIMVAR(TALLOC_CTX *mem_ctx, union CIMVAR *v, enum CIMTYPE_ENUMERATION cimtype)
 {
-	switch (cimtype) {
-	case CIM_SINT8: return talloc_asprintf(mem_ctx, "%d", v->v_sint8);
-	case CIM_UINT8: return talloc_asprintf(mem_ctx, "%u", v->v_uint8);
-	case CIM_SINT16: return talloc_asprintf(mem_ctx, "%d", v->v_sint16);
-	case CIM_UINT16: return talloc_asprintf(mem_ctx, "%u", v->v_uint16);
-	case CIM_SINT32: return talloc_asprintf(mem_ctx, "%d", v->v_sint32);
-	case CIM_UINT32: return talloc_asprintf(mem_ctx, "%u", v->v_uint32);
-	case CIM_SINT64: return talloc_asprintf(mem_ctx, "%lld", v->v_sint64);
-	case CIM_UINT64: return talloc_asprintf(mem_ctx, "%llu", v->v_sint64);
-	case CIM_REAL32: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint32);
-	case CIM_REAL64: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint64);
-	case CIM_BOOLEAN: return talloc_asprintf(mem_ctx, "%s", v->v_boolean?"True":"False");
-	case CIM_STRING:
-	case CIM_DATETIME:
-	case CIM_REFERENCE: return talloc_asprintf(mem_ctx, "%s", v->v_string);
-	case CIM_CHAR16: return talloc_asprintf(mem_ctx, "Unsupported");
-	case CIM_OBJECT: return talloc_asprintf(mem_ctx, "Unsupported");
-	case CIM_ARR_SINT8: RETURN_CVAR_ARRAY_STR("%d", v->a_sint8);
-	case CIM_ARR_UINT8: RETURN_CVAR_ARRAY_STR("%u", v->a_uint8);
-	case CIM_ARR_SINT16: RETURN_CVAR_ARRAY_STR("%d", v->a_sint16);
-	case CIM_ARR_UINT16: RETURN_CVAR_ARRAY_STR("%u", v->a_uint16);
-	case CIM_ARR_SINT32: RETURN_CVAR_ARRAY_STR("%d", v->a_sint32);
-	case CIM_ARR_UINT32: RETURN_CVAR_ARRAY_STR("%u", v->a_uint32);
-	case CIM_ARR_SINT64: RETURN_CVAR_ARRAY_STR("%lld", v->a_sint64);
-	case CIM_ARR_UINT64: RETURN_CVAR_ARRAY_STR("%llu", v->a_uint64);
-	case CIM_ARR_REAL32: RETURN_CVAR_ARRAY_STR("%f", v->a_real32);
-	case CIM_ARR_REAL64: RETURN_CVAR_ARRAY_STR("%f", v->a_real64);
-	case CIM_ARR_BOOLEAN: RETURN_CVAR_ARRAY_STR("%d", v->a_boolean);
-	case CIM_ARR_STRING: RETURN_CVAR_ARRAY_STR("%s", v->a_string);
-	case CIM_ARR_DATETIME: RETURN_CVAR_ARRAY_STR("%s", v->a_datetime);
-	case CIM_ARR_REFERENCE: RETURN_CVAR_ARRAY_STR("%s", v->a_reference);
-	default: return talloc_asprintf(mem_ctx, "Unsupported");
-	}
+    //DCOM_TODO: ................
+	// switch (cimtype) {
+	// case CIM_SINT8: return talloc_asprintf(mem_ctx, "%d", v->v_sint8);
+	// case CIM_UINT8: return talloc_asprintf(mem_ctx, "%u", v->v_uint8);
+	// case CIM_SINT16: return talloc_asprintf(mem_ctx, "%d", v->v_sint16);
+	// case CIM_UINT16: return talloc_asprintf(mem_ctx, "%u", v->v_uint16);
+	// case CIM_SINT32: return talloc_asprintf(mem_ctx, "%d", v->v_sint32);
+	// case CIM_UINT32: return talloc_asprintf(mem_ctx, "%u", v->v_uint32);
+	// case CIM_SINT64: return talloc_asprintf(mem_ctx, "%lld", v->v_sint64);
+	// case CIM_UINT64: return talloc_asprintf(mem_ctx, "%llu", v->v_sint64);
+	// case CIM_REAL32: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint32);
+	// case CIM_REAL64: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint64);
+	// case CIM_BOOLEAN: return talloc_asprintf(mem_ctx, "%s", v->v_boolean?"True":"False");
+	// case CIM_STRING:
+	// case CIM_DATETIME:
+	// case CIM_REFERENCE: return talloc_asprintf(mem_ctx, "%s", v->v_string);
+	// case CIM_CHAR16: return talloc_asprintf(mem_ctx, "Unsupported");
+	// case CIM_OBJECT: return talloc_asprintf(mem_ctx, "Unsupported");
+	// case CIM_ARR_SINT8: RETURN_CVAR_ARRAY_STR("%d", v->a_sint8);
+	// case CIM_ARR_UINT8: RETURN_CVAR_ARRAY_STR("%u", v->a_uint8);
+	// case CIM_ARR_SINT16: RETURN_CVAR_ARRAY_STR("%d", v->a_sint16);
+	// case CIM_ARR_UINT16: RETURN_CVAR_ARRAY_STR("%u", v->a_uint16);
+	// case CIM_ARR_SINT32: RETURN_CVAR_ARRAY_STR("%d", v->a_sint32);
+	// case CIM_ARR_UINT32: RETURN_CVAR_ARRAY_STR("%u", v->a_uint32);
+	// case CIM_ARR_SINT64: RETURN_CVAR_ARRAY_STR("%lld", v->a_sint64);
+	// case CIM_ARR_UINT64: RETURN_CVAR_ARRAY_STR("%llu", v->a_uint64);
+	// case CIM_ARR_REAL32: RETURN_CVAR_ARRAY_STR("%f", v->a_real32);
+	// case CIM_ARR_REAL64: RETURN_CVAR_ARRAY_STR("%f", v->a_real64);
+	// case CIM_ARR_BOOLEAN: RETURN_CVAR_ARRAY_STR("%d", v->a_boolean);
+	// case CIM_ARR_STRING: RETURN_CVAR_ARRAY_STR("%s", v->a_string);
+	// case CIM_ARR_DATETIME: RETURN_CVAR_ARRAY_STR("%s", v->a_datetime);
+	// case CIM_ARR_REFERENCE: RETURN_CVAR_ARRAY_STR("%s", v->a_reference);
+	// default: return talloc_asprintf(mem_ctx, "Unsupported");
+	// }
+    return NULL;
 }
 
 #undef RETURN_CVAR_ARRAY_STR
 
+char ns[] = "root\\cimv2";
 int main(int argc, char **argv)
 {
-	struct program_args args = {};
+    TALLOC_CTX *frame = talloc_stackframe();
+	const char **const_argv = discard_const_p(const char *, argv);
+    struct program_args args = {};
 	uint32_t cnt = 5, ret;
 	char *class_name = NULL;
 	WERROR result;
@@ -163,14 +212,20 @@ int main(int argc, char **argv)
 	struct BSTR queryLanguage, query;
 	struct IEnumWbemClassObject *pEnum = NULL;
 	struct com_context *ctx = NULL;
+    struct loadparm_context *lp_ctx = NULL;
+    TALLOC_CTX *mem_ctx = NULL;
+    struct IWbemClassObject *co[cnt];
 
-	parse_args(argc, argv, &args);
-
-	wmi_init(&ctx, popt_get_cmdline_credentials());
+    (void)class_name;
+    smb_init_locale();
+    parse_args(argc, const_argv, frame, &args);
+    lp_ctx = samba_cmdline_get_lp_ctx();
+    samba_cmdline_burn(argc, argv);
+	wmi_init(&ctx, args.credentials, lp_ctx);
 
 	if (!args.ns)
-		args.ns = "root\\cimv2";
-	result = WBEM_ConnectServer(ctx, args.hostname, args.ns, 0, 0, 0, 0, 0, 0, &pWS);
+		args.ns = ns;
+	result = WBEM_ConnectServer(ctx, args.hostname, args.ns, 0, 0, 0, 0, 0, &pWS);
 	WERR_CHECK("Login to remote object.");
 
 	queryLanguage.data = "WQL";
@@ -180,12 +235,13 @@ int main(int argc, char **argv)
 
 	IEnumWbemClassObject_Reset(pEnum, ctx);
 	WERR_CHECK("Reset result of WMI query.");
-
+    mem_ctx = talloc_new(0);
 	do {
 		uint32_t i, j;
-		struct WbemClassObject *co[cnt];
+        (void)i;
+        (void)j;
 
-		result = IEnumWbemClassObject_SmartNext(pEnum, ctx, 0xFFFFFFFF, cnt, co, &ret);
+		result = IEnumWbemClassObject_SmartNext(pEnum, mem_ctx, 0xFFFFFFFF, cnt, co, &ret);
 		/* WERR_INVALID_FUNCTION is OK, it means only that there is less returned objects than requested */
 		if (!W_ERROR_EQUAL(result, WERR_INVALID_FUNCTION)) {
 			WERR_CHECK("Retrieve result data.");
@@ -194,22 +250,23 @@ int main(int argc, char **argv)
 		}
 		if (!ret) break;
 
-		for (i = 0; i < ret; ++i) {
-			if (!class_name || strcmp(co[i]->obj_class->__CLASS, class_name)) {
-				if (class_name) talloc_free(class_name);
-				class_name = talloc_strdup(ctx, co[i]->obj_class->__CLASS);
-				printf("CLASS: %s\n", class_name);
-				for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j)
-					printf("%s%s", j?"|":"", co[i]->obj_class->properties[j].property.name);
-				printf("\n");
-			}
-			for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j) {
-				char *s;
-				s = string_CIMVAR(ctx, &co[i]->instance->data[j], co[i]->obj_class->properties[j].property.desc->cimtype & CIM_TYPEMASK);
-				printf("%s%s", j?"|":"", s);
-			}
-			printf("\n");
-		}
+        // DCOM_TODO:
+		// for (i = 0; i < ret; ++i) {
+		// 	if (!class_name || strcmp(co[i]->obj_class->__CLASS, class_name)) {
+		// 		if (class_name) talloc_free(class_name);
+		// 		class_name = talloc_strdup(ctx, co[i]->obj_class->__CLASS);
+		// 		printf("CLASS: %s\n", class_name);
+		// 		for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j)
+		// 			printf("%s%s", j?"|":"", co[i]->obj_class->properties[j].property.name);
+		// 		printf("\n");
+		// 	}
+		// 	for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j) {
+		// 		char *s;
+		// 		s = string_CIMVAR(ctx, &co[i]->instance->data[j], co[i]->obj_class->properties[j].property.desc->cimtype & CIM_TYPEMASK);
+		// 		printf("%s%s", j?"|":"", s);
+		// 	}
+		// 	printf("\n");
+		// }
 	} while (ret == cnt);
 	talloc_free(ctx);
 	return 0;

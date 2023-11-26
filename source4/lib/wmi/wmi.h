@@ -22,15 +22,29 @@
 
 #include "librpc/gen_ndr/com_wmi.h"
 
-union CIMVAR;
+union CIMVAR
+{
+    uint8_t v_uint8;
+    int8_t v_sint8;
+    uint16_t v_uint16;
+    int16_t v_sint16;
+    uint32_t v_uint32;
+    int32_t v_sint32;
+    uint64_t v_uint64;
+    int64_t v_sint64;
+    int v_boolean;
+    float v_real32;
+    double v_real64;
+    const char* v_string;
+};
 
 /* The following definitions come from lib/wmi/wmicore.c  */
 
 
 /** FIXME: Use credentials struct rather than user/password here */
-WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const char *nspace,
+WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, char *nspace,
 			  struct cli_credentials *credentials,
-			  const char *locale, uint32_t flags, const char *authority,
+			  uint16_t *locale, uint32_t flags, const char *authority,
 			  struct IWbemContext* wbem_ctx, struct IWbemServices** services);
 const char *wmi_errstr(WERROR werror);
 
@@ -45,6 +59,7 @@ WERROR IWbemClassObject_Put(struct IWbemClassObject *d, TALLOC_CTX *mem_ctx, con
 WERROR IEnumWbemClassObject_SmartNext(struct IEnumWbemClassObject *d, TALLOC_CTX *mem_ctx, int32_t lTimeout, uint32_t uCount, struct IWbemClassObject **apObjects, uint32_t *puReturned);
 struct composite_context *dcom_proxy_IEnumWbemClassObject_Release_send(struct IUnknown *d, TALLOC_CTX *mem_ctx);
 
-void wmi_init(struct com_context **ctx, struct cli_credentials *credentials);
+void wmi_init(struct com_context **ctx, struct cli_credentials *credentials,
+			  struct loadparm_context *lp_ctx);
 const char *wmi_errstr(WERROR werror);
 #endif

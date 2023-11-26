@@ -29,6 +29,18 @@ struct rpc_request;
 #include "librpc/gen_ndr/orpc.h"
 #include "librpc/rpc/rpc_common.h"
 
+typedef struct GUID CLSID;
+typedef struct GUID IID;
+typedef struct COMVERSION COMVERSION;
+
+#define WERROR_CHECK(call) do { \
+	WERROR _status; \
+	_status = call; \
+	if (unlikely(!NDR_ERR_CODE_IS_SUCCESS(W_ERROR_V(_status)))) {	\
+		return _status; \
+	} \
+} while (0)
+
 struct dcom_client_context {
 	struct dcom_server_credentials {
 		const char *server;
@@ -73,8 +85,10 @@ struct dcom_object_exporter *object_exporter_by_oxid(struct com_context *ctx, ui
 struct dcom_object_exporter *object_exporter_by_ip(struct com_context *ctx, struct IUnknown *ip);
 HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const char *server, int num_ifaces, struct GUID *iid, struct IUnknown ***ip, HRESULT *results);
 WERROR dcom_get_class_object(struct com_context *ctx, struct GUID *clsid, const char *server, struct GUID *iid, struct IUnknown **ip);
+NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF *obj, struct GUID *iid, struct dcerpc_binding_handle **ph);
 NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp);
 WERROR dcom_OBJREF_from_IUnknown(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct IUnknown *p);
+WERROR dcom_IUnknown_from_MIP(struct com_context *ctx, struct IUnknown **_p, struct MInterfacePointer *_mi);
 WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, struct OBJREF *o);
 uint64_t dcom_get_current_oxid(void);
 void dcom_add_server_credentials(struct com_context *ctx, const char *server, struct cli_credentials *credentials);

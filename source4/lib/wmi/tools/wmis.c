@@ -19,7 +19,8 @@
 */
 
 #include "includes.h"
-#include "lib/cmdline/popt_common.h"
+#include "third_party/popt/popt.h"
+#include "lib/cmdline/cmdline.h"
 #include "auth/credentials/credentials.h"
 #include "librpc/rpc/dcerpc.h"
 #include "librpc/gen_ndr/ndr_oxidresolver.h"
@@ -40,15 +41,18 @@
 struct program_args {
     char *hostname;
     char *query;
+    struct cli_credentials *credentials;
 };
 
-static void parse_args(int argc, char *argv[], struct program_args *pmyargs)
+static void parse_args(int argc, const char *argv[],
+                TALLOC_CTX *mem_ctx, struct program_args *pmyargs)
 {
     poptContext pc;
     int opt, i;
 
     int argc_new;
     char **argv_new;
+    bool ok;
 
     struct poptOption long_options[] = {
 	POPT_AUTOHELP
@@ -59,35 +63,53 @@ static void parse_args(int argc, char *argv[], struct program_args *pmyargs)
 	POPT_TABLEEND
     };
 
-    pc = poptGetContext("wmi", argc, (const char **) argv,
-	        long_options, POPT_CONTEXT_KEEP_FIRST);
+    ok = samba_cmdline_init(mem_ctx,
+        SAMBA_CMDLINE_CONFIG_CLIENT,
+        false /* require_smbconf */);
+    if (!ok) {
+        DBG_ERR("Failed to init cmdline parser!\n");
+        TALLOC_FREE(mem_ctx);
+        exit(1);
+    }
+
+    pc = samba_popt_get_context(getprogname(),
+        argc,
+        argv,
+        long_options,
+        POPT_CONTEXT_KEEP_FIRST);
+    if (pc == NULL) {
+        DBG_ERR("Failed to setup popt context!\n");
+        TALLOC_FREE(mem_ctx);
+        exit(1);
+    }
 
     poptSetOtherOptionHelp(pc, "//host\n\nExample: wmis -U [domain/]adminuser%password //host");
 
     while ((opt = poptGetNextOpt(pc)) != -1) {
-	poptPrintUsage(pc, stdout, 0);
-	poptFreeContext(pc);
-	exit(1);
+        poptPrintUsage(pc, stdout, 0);
+        poptFreeContext(pc);
+        exit(1);
     }
 
     argv_new = discard_const_p(char *, poptGetArgs(pc));
 
     argc_new = argc;
     for (i = 0; i < argc; i++) {
-	if (argv_new[i] == NULL) {
-	    argc_new = i;
-	    break;
-	}
+        if (argv_new[i] == NULL) {
+            argc_new = i;
+            break;
+        }
     }
 
     if (argc_new < 2 || argv_new[1][0] != '/'
-	|| argv_new[1][1] != '/') {
-	poptPrintUsage(pc, stdout, 0);
-	poptFreeContext(pc);
-	exit(1);
+        || argv_new[1][1] != '/') {
+        poptPrintUsage(pc, stdout, 0);
+        poptFreeContext(pc);
+        exit(1);
     }
-
+    pmyargs->credentials = samba_cmdline_get_creds();
     pmyargs->hostname = argv_new[1] + 2;
+    pmyargs->query = argv_new[2];
     poptFreeContext(pc);
 }
 
@@ -134,6 +156,7 @@ error:
 	return result;
 }
 */
+WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32_t *ret_code);
 WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32_t *ret_code)
 {
 	struct IWbemClassObject *wco = NULL;
@@ -168,7 +191,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	WERR_CHECK("IWbemServices_ExecMethod.");
 
 	if (ret_code) {
-		result = WbemClassObject_Get(out->object_data, ctx, "ReturnValue", 0, &v, 0, 0);
+		result = IWbemClassObject_Get(out->object_data, ctx, "ReturnValue", 0, &v, 0, 0);
 		WERR_CHECK("IWbemClassObject_Put(CommandLine).");
 		*ret_code = v.v_uint32;
 	}
@@ -177,9 +200,13 @@ error:
 	return result;
 }
 
-int main(int argc, char **argv)
+char ns[] = "root\\cimv2";
+
+int main(int argc, char **argv_)
 {
-	struct program_args args = {};
+  TALLOC_CTX *frame = NULL;
+	const char **const_argv = NULL;
+  struct program_args args = {};
 	struct com_context *ctx = NULL;
 	WERROR result;
 	NTSTATUS status;
@@ -188,11 +215,20 @@ int main(int argc, char **argv)
 	uint32_t cnt;
 	struct BSTR queryLanguage;
 	struct BSTR query;
+	struct loadparm_context *lp_ctx =  NULL;
 
-	parse_args(argc, argv, &args);
+	frame = talloc_init("root");
+	//frame = talloc_stackframe();
+	const_argv = discard_const_p(const char *, xargv);
 
-	wmi_init(&ctx, popt_get_cmdline_credentials());
-	result = WBEM_ConnectServer(ctx, args.hostname, "root\\cimv2", 0, 0, 0, 0, 0, 0, &pWS);
+  smb_init_locale();
+	argc = 4;
+  parse_args(argc, const_argv, frame, &args);
+  lp_ctx = samba_cmdline_get_lp_ctx();
+  //samba_cmdline_burn(argc, argv);
+	wmi_init(&ctx, args.credentials, lp_ctx);
+
+	result = WBEM_ConnectServer(ctx, args.hostname, ns, 0, 0, 0, 0, 0, &pWS);
 	WERR_CHECK("WBEM_ConnectServer.");
 
 	printf("1: Creating directory C:\\wmi_test_dir_tmp using method Win32_Process.Create\n");
@@ -207,11 +243,11 @@ int main(int argc, char **argv)
 		query, WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 	WERR_CHECK("WMI query execute.");
 	for (cnt = 0; cnt < 4; ++cnt) {
-		struct WbemClassObject *co;
+		struct IWbemClassObject *co;
 		uint32_t ret;
 		result = IEnumWbemClassObject_SmartNext(pEnum, ctx, 0xFFFFFFFF, 1, &co, &ret);
     		WERR_CHECK("IEnumWbemClassObject_Next.");
-		printf("%s\n", co->obj_class->__CLASS);
+		//DCOM_TODO: printf("%s\n", co->obj_class->__CLASS);
 	}
 
 error:
