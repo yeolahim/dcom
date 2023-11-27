@@ -37,7 +37,7 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 	NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &num_entries));
 	NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &security_offset));
 
-	ar->stringbindings = talloc_array(ndr, struct STRINGBINDING *, 1);
+	ar->stringbindings = talloc_array(ar, struct STRINGBINDING *, 1);
 	ar->stringbindings[0] = NULL;
 
 	do {
@@ -46,8 +46,8 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 
 		if (towerid > 0) {
 			ndr->offset -= 2; 
-			ar->stringbindings = talloc_realloc(ndr, ar->stringbindings, struct STRINGBINDING *, towernum+2);
-			ar->stringbindings[towernum] = talloc(ndr, struct STRINGBINDING);
+			ar->stringbindings = talloc_realloc(ar, ar->stringbindings, struct STRINGBINDING *, towernum+2);
+			ar->stringbindings[towernum] = talloc(ar, struct STRINGBINDING);
 			NDR_CHECK(ndr_pull_STRINGBINDING(ndr, ndr_flags, ar->stringbindings[towernum]));
 			towernum++;
 		}
@@ -56,7 +56,7 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 	ar->stringbindings[towernum] = NULL;
 	towernum = 0;
 
-	ar->securitybindings = talloc_array(ndr, struct SECURITYBINDING *, 1);
+	ar->securitybindings = talloc_array(ar, struct SECURITYBINDING *, 1);
 	ar->securitybindings[0] = NULL;
 
 	do {
@@ -65,8 +65,8 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 
 		if (towerid > 0) {
 			ndr->offset -= 2; 
-			ar->securitybindings = talloc_realloc(ndr, ar->securitybindings, struct SECURITYBINDING *, towernum+2);
-			ar->securitybindings[towernum] = talloc(ndr, struct SECURITYBINDING);
+			ar->securitybindings = talloc_realloc(ar, ar->securitybindings, struct SECURITYBINDING *, towernum+2);
+			ar->securitybindings[towernum] = talloc(ar, struct SECURITYBINDING);
 			NDR_CHECK(ndr_pull_SECURITYBINDING(ndr, ndr_flags, ar->securitybindings[towernum]));
 			towernum++;
 		}

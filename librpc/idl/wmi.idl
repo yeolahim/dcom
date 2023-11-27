@@ -565,6 +565,10 @@ coclass WbemClassObject
 	pointer_default(unique)
 ] interface IWbemLevel1Login :  IUnknown
 {
+    WERROR IWbemLevel1Login_MethodPad0();
+    WERROR IWbemLevel1Login_MethodPad1();
+    WERROR IWbemLevel1Login_MethodPad2();
+
 	WERROR EstablishPosition(
 		[in, unique, string, charset(UTF16)] uint16* wszLocaleList,
 		[in] DWORD dwNumLocales,

@@ -34,7 +34,7 @@ struct IWbemContext;
 const char *wmi_errstr(WERROR werror);
 
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
-                            DEBUG(0, ("ERROR: %s\n", msg)); \
+                            DEBUG(0, ("ERROR: %s -> %x\n", msg, W_ERROR_V(result))); \
                             goto end; \
                         } else { \
                             DEBUG(1, ("OK   : %s\n", msg)); \
@@ -94,9 +94,11 @@ WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, char *nsp
         talloc_free(mqi);
 
         result = IWbemLevel1Login_NTLMLogin(pL, ctx, ((uint16_t*)nspace), locale, flags, wbem_ctx, services);
+        printf("IWbemServices: %p\n", *services);
+        DEBUG(0, ("IWbemServices: %p\n",*services));
+        //result = IWbemLevel1Login_NTLMLogin(pL, ctx, 0, locale, flags, wbem_ctx, services);
         WERR_CHECK("Login to remote object.");
-
-	IUnknown_Release((struct IUnknown *)pL, ctx);
+	    //DCOM_TODO: IUnknown_Release((struct IUnknown *)pL, ctx);
 end:
         return result;
 }

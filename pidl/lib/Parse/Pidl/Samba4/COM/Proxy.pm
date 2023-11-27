@@ -111,7 +111,7 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 		return $w_error;
 	}
 
-	NDR_ZERO_STRUCT(r.in.ORPCthis);
+	NDR_ZERO_STRUCT(r.in);
 	r.in.ORPCthis.version.MajorVersion = COM_MAJOR_VERSION;
 	r.in.ORPCthis.version.MinorVersion = COM_MINOR_VERSION;
 ";
@@ -121,9 +121,14 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 		next unless (has_property($a, "in"));
 		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
 			if (has_property($a, "out")) {
-				$res .="\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &(*(r.in.$a->{NAME}))->obj, (struct IUnknown*)(*$a->{NAME})));\n";
+                $res .= "\tif (*$a->{NAME}) {\n";
+				$res .= "\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &(*(r.in.$a->{NAME}))->obj, (struct IUnknown*)(*$a->{NAME})));\n";
+                $res .= "\t}\n";
 			} else {
-				$res .="\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &r.in.$a->{NAME}->obj, (struct IUnknown*)$a->{NAME}));\n";
+                $res .= "\tif ($a->{NAME}) {\n";
+                $res .="\t\tr.in.$a->{NAME} = talloc_zero(mem_ctx, struct MInterfacePointer);\n";
+				$res .="\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &r.in.$a->{NAME}->obj, (struct IUnknown*)$a->{NAME}));\n";
+                $res .= "\t}\n";
 			}
 		} else {
 			if (has_property($a, "string")) {
@@ -140,7 +145,10 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 		NDR_PRINT_IN_DEBUG($name, &r);
 	}
 #endif
-	status = dcerpc_binding_handle_call(h, NULL, &ndr_table_$interface->{NAME}, NDR_$uname, mem_ctx, &r);
+	status = dcerpc_binding_handle_call(h, &d->obj.u_objref.u_standard.std.ipid, &ndr_table_$interface->{NAME}, NDR_$uname, mem_ctx, &r);
+    if (NT_STATUS_IS_ERR(status)) {
+		return $w_error;
+	}
 #if 0
 	if (NT_STATUS_IS_OK(status) && (p->conn->flags & DCERPC_DEBUG_PRINT_OUT)) {
 		NDR_PRINT_OUT_DEBUG($name, &r);

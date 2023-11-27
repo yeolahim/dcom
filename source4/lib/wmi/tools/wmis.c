@@ -114,11 +114,11 @@ static void parse_args(int argc, const char *argv[],
 }
 
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
-			    DEBUG(0, ("ERROR: %s\n", msg)); \
-			    goto error; \
-			} else { \
-			    DEBUG(1, ("OK   : %s\n", msg)); \
-			}
+                            DEBUG(0, ("ERROR: %s -> %x\n", msg, W_ERROR_V(result))); \
+                            goto error; \
+                        } else { \
+                            DEBUG(1, ("OK   : %s\n", msg)); \
+                        }
 /*
 WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const char *nspace, const char *user, const char *password, const char *locale, uint32_t flags, const char *authority, struct IWbemContext* wbem_ctx, struct IWbemServices** services)
 {
@@ -173,7 +173,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 
 	result = IWbemServices_GetObject(pWS, ctx, objectPath,
 					 WBEM_FLAG_RETURN_WBEM_COMPLETE, NULL, &wco, NULL);
-	WERR_CHECK("GetObject.");
+	WERR_CHECK("GetObject. ");
 
 	result = IWbemClassObject_GetMethod(wco, ctx, "Create", 0, &inc, &outc);
 	WERR_CHECK("IWbemClassObject_GetMethod.");
@@ -192,7 +192,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 
 	if (ret_code) {
 		result = IWbemClassObject_Get(out->object_data, ctx, "ReturnValue", 0, &v, 0, 0);
-		WERR_CHECK("IWbemClassObject_Put(CommandLine).");
+		WERR_CHECK("IWbemClassObject_Get(ReturnValue).");
 		*ret_code = v.v_uint32;
 	}
 error:
@@ -200,33 +200,31 @@ error:
 	return result;
 }
 
-const char* xargv[5] = {"wmis", "-U", "zecurion/bulavitsky%Bskzxamsa@0x1c", "//192.168.0.211", 0};
 char ns[] = "root\\cimv2";
 
-int main(int argc, char **argv_)
+int main(int argc, char **argv)
 {
-  TALLOC_CTX *frame = NULL;
+    TALLOC_CTX *frame = NULL;
 	const char **const_argv = NULL;
-  struct program_args args = {};
+    struct program_args args = {};
 	struct com_context *ctx = NULL;
 	WERROR result;
 	NTSTATUS status;
 	struct IWbemServices *pWS = NULL;
 	struct IEnumWbemClassObject *pEnum = NULL;
-	uint32_t cnt;
+	uint32_t cnt = 0;
 	struct BSTR queryLanguage;
 	struct BSTR query;
 	struct loadparm_context *lp_ctx =  NULL;
 
 	frame = talloc_init("root");
 	//frame = talloc_stackframe();
-	const_argv = discard_const_p(const char *, xargv);
+	const_argv = discard_const_p(const char *, argv);
 
-  smb_init_locale();
-	argc = 4;
-  parse_args(argc, const_argv, frame, &args);
-  lp_ctx = samba_cmdline_get_lp_ctx();
-  //samba_cmdline_burn(argc, argv);
+    smb_init_locale();
+    parse_args(argc, const_argv, frame, &args);
+    lp_ctx = samba_cmdline_get_lp_ctx();
+    //samba_cmdline_burn(argc, argv);
 	wmi_init(&ctx, args.credentials, lp_ctx);
 
 	result = WBEM_ConnectServer(ctx, args.hostname, ns, 0, 0, 0, 0, 0, &pWS);

@@ -321,23 +321,23 @@ struct dcom_object_exporter *object_exporter_by_ip(struct com_context *ctx, stru
 HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const char *server, int num_ifaces, struct GUID *iid, struct IUnknown ***ip, HRESULT *results)
 {
 	uint16_t protseq[] = DCOM_NEGOTIATED_PROTOCOLS;
-	struct dcerpc_pipe *p;
-	struct dcom_object_exporter *m;
+	struct dcerpc_pipe *p = NULL;
+	struct dcom_object_exporter *m = NULL;
 	NTSTATUS status;
-	struct RemoteActivation r;
-	struct DUALSTRINGARRAY *pds;
+//	struct RemoteActivation r;
+	struct DUALSTRINGARRAY *pds = NULL;
 	int i;
 	HRESULT hr;
-	uint64_t oxid;
+	uint64_t oxid = 0;
 	struct GUID ipidRemUnknown;
-	struct IUnknown *ru_template;
+	struct IUnknown *ru_template = NULL;
 	struct ORPCTHAT that;
 	uint32_t AuthnHint;
 	struct COMVERSION ServerVersion;
-	struct MInterfacePointer **ifaces;
-	TALLOC_CTX *loc_ctx;
-  WERROR result;
-  struct ORPCTHIS this_object;
+	struct MInterfacePointer **ifaces = NULL;
+	TALLOC_CTX *loc_ctx = NULL;
+    WERROR result;
+    struct ORPCTHIS this_object;
 
 	status = dcom_connect_host(ctx, &p, server);
 	if (NT_STATUS_IS_ERR(status)) {
@@ -348,36 +348,36 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 
 	ifaces = talloc_array(loc_ctx, struct MInterfacePointer *, num_ifaces);
 
-	ZERO_STRUCT(r.in);
-	r.in.this_object.version.MajorVersion = COM_MAJOR_VERSION;
-	r.in.this_object.version.MinorVersion = COM_MINOR_VERSION;
-	r.in.this_object.cid = GUID_random();
-	r.in.Clsid = *clsid;
-	r.in.ClientImpLevel = RPC_C_IMP_LEVEL_IDENTIFY;
-	r.in.num_protseqs = ARRAY_SIZE(protseq);
-	r.in.protseq = protseq;
-	r.in.Interfaces = num_ifaces;
-	r.in.pIIDs = iid;
-	r.out.that = &that;
-	r.out.pOxid = &oxid;
-	r.out.pdsaOxidBindings = &pds;
-	r.out.ipidRemUnknown = &ipidRemUnknown;
-	r.out.AuthnHint = &AuthnHint;
-	r.out.ServerVersion = &ServerVersion;
-	r.out.hr = &hr;
-	r.out.ifaces = ifaces;
-	r.out.results = results;
+	// ZERO_STRUCT(r.in);
+	// r.in.this_object.version.MajorVersion = COM_MAJOR_VERSION;
+	// r.in.this_object.version.MinorVersion = COM_MINOR_VERSION;
+	// r.in.this_object.cid = GUID_random();
+	// r.in.Clsid = *clsid;
+	// r.in.ClientImpLevel = RPC_C_IMP_LEVEL_IDENTIFY;
+	// r.in.num_protseqs = ARRAY_SIZE(protseq);
+	// r.in.protseq = protseq;
+	// r.in.Interfaces = num_ifaces;
+	// r.in.pIIDs = iid;
+	// r.out.that = &that;
+	// r.out.pOxid = &oxid;
+	// r.out.pdsaOxidBindings = &pds;
+	// r.out.ipidRemUnknown = &ipidRemUnknown;
+	// r.out.AuthnHint = &AuthnHint;
+	// r.out.ServerVersion = &ServerVersion;
+	// r.out.hr = &hr;
+	// r.out.ifaces = ifaces;
+	// r.out.results = results;
 
 #if 1
 ///////
-  ZERO_STRUCT(this_object);
+    ZERO_STRUCT(this_object);
 	this_object.version.MajorVersion = COM_MAJOR_VERSION;
 	this_object.version.MinorVersion = COM_MINOR_VERSION;
-  this_object.flags = 1;
+    this_object.flags = 1;
 	this_object.cid = GUID_random();
-  this_object.extensions = NULL;
-  //struct MInterfacePointer objectStorage;
-  printf("Running RemoteActivation\n"); //DCOM_TODO_REMOVE_ME
+    this_object.extensions = NULL;
+    //struct MInterfacePointer objectStorage;
+    printf("Running RemoteActivation\n"); //DCOM_TODO_REMOVE_ME
 
 	status = dcerpc_RemoteActivation(p->binding_handle, loc_ctx
         , this_object
@@ -594,15 +594,19 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
         printf("Error 2 while running RemoteActivation 0x%x\n", HRES_ERROR_V(hr)); //DCOM_TODO_REMOVE_ME
 		goto end;
 	}
-
+    // talloc_report_full(pds->stringbindings, stdout);
+    // printf("pds %p\n", pds);
+    // printf("pds.stringbindings %p\n", pds->stringbindings);
 	m = object_exporter_update_oxid(ctx, oxid, pds);
-
+    // printf("bindings %p\n", m->bindings);
+    // printf("bindings.stringbindings %p\n", m->bindings->stringbindings);
+    // talloc_report_full(pds->stringbindings, stdout);
 	ru_template = NULL;
 	*ip = talloc_array(ctx, struct IUnknown *, num_ifaces);
 	for (i = 0; i < num_ifaces; i++) {
 		(*ip)[i] = NULL;
 		if (HRES_IS_OK(results[i])) {
-			status = NT_STATUS(W_ERROR_V(dcom_IUnknown_from_OBJREF(ctx, &(*ip)[i], &r.out.ifaces[i]->obj)));
+			status = NT_STATUS(W_ERROR_V(dcom_IUnknown_from_OBJREF(ctx, &(*ip)[i], &ifaces[i]->obj)));
 			if (!NT_STATUS_IS_OK(status)) {
 				results[i] = HRES_ERROR(W_ERROR_V(ntstatus_to_werror(status)));
 			} else if (!ru_template)
@@ -621,13 +625,15 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 			hr = HRES_ERROR(W_ERROR_V(WERR_GEN_FAILURE));
 		}
 		m->rem_unknown = talloc_zero(m, struct IRemUnknown);
+        // printf("rem_unknown %p\n", m->rem_unknown);
+        // talloc_report_full(m->rem_unknown, stdout);
 		memcpy(m->rem_unknown, ru_template, sizeof(struct IUnknown));
 		GUID_from_string(COM_IREMUNKNOWN_UUID, &m->rem_unknown->obj.iid);
 		m->rem_unknown->obj.u_objref.u_standard.std.ipid = ipidRemUnknown;
 		m->rem_unknown->vtable = (struct IRemUnknown_vtable *)dcom_proxy_vtable_by_iid(&m->rem_unknown->obj.iid);
 		/* TODO:avg copy stringbindigs?? */
 	}
-
+    // talloc_report_full(pds->stringbindings, stdout);
 	dcom_update_credentials_for_aliases(ctx, server, pds);
 	{
 		char *c;
