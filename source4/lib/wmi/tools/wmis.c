@@ -117,7 +117,7 @@ static void parse_args(int argc, const char *argv[],
                             DEBUG(0, ("ERROR: %s -> %x\n", msg, W_ERROR_V(result))); \
                             goto error; \
                         } else { \
-                            DEBUG(1, ("OK   : %s\n", msg)); \
+                            DEBUG(0, ("OK   : %s\n", msg)); \
                         }
 /*
 WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const char *nspace, const char *user, const char *password, const char *locale, uint32_t flags, const char *authority, struct IWbemContext* wbem_ctx, struct IWbemServices** services)
@@ -170,7 +170,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	ctx = talloc_new(0);
 
 	objectPath.data = "Win32_Process";
-
+    objectPath.flags = 0;
 	result = IWbemServices_GetObject(pWS, ctx, objectPath,
 					 WBEM_FLAG_RETURN_WBEM_COMPLETE, NULL, &wco, NULL);
 	WERR_CHECK("GetObject. ");
@@ -200,7 +200,7 @@ error:
 	return result;
 }
 
-char ns[] = "root\\cimv2";
+char ns[] = "//./root/cimv2";
 
 int main(int argc, char **argv)
 {
@@ -231,7 +231,7 @@ int main(int argc, char **argv)
 	WERR_CHECK("WBEM_ConnectServer.");
 
 	printf("1: Creating directory C:\\wmi_test_dir_tmp using method Win32_Process.Create\n");
-	WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir_tmp", &cnt);
+	result = WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir_tmp", &cnt);
 	WERR_CHECK("WBEM_RemoteExecute.");
 	printf("2: ReturnCode: %d\n", cnt);
 

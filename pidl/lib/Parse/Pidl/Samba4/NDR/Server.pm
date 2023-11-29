@@ -76,11 +76,20 @@ sub gen_reply_switch($)
 sub Boilerplate_Iface($)
 {
 	my($interface) = shift;
-	my $name = $interface->{NAME}; 
+	my $name = $interface->{NAME};
 	my $uname = uc $name;
 	my $uuid = lc($interface->{UUID});
 	my $if_version = $interface->{VERSION};
+    my $dispbase = "";
 
+    if (defined($interface->{BASE})) {
+        $dispbase = "
+    if (opnum < ndr_table_$name.off_calls) {
+        return $interface->{BASE}\__op_ndr_pull(dce_call, mem_ctx, pull, r);
+    }
+    opnum -= ndr_table_$name.off_calls;
+";
+    }
 	pidl "
 static NTSTATUS $name\__op_bind(struct dcesrv_connection_context *context, const struct dcesrv_interface *iface)
 {
@@ -106,6 +115,7 @@ static NTSTATUS $name\__op_ndr_pull(struct dcesrv_call_state *dce_call, TALLOC_C
 	uint16_t opnum = dce_call->pkt.u.request.opnum;
 
 	dce_call->fault_code = 0;
+    $dispbase
 
 	if (opnum >= ndr_table_$name.num_calls) {
 		dce_call->fault_code = DCERPC_FAULT_OP_RNG_ERROR;

@@ -378,13 +378,13 @@ struct tevent_req *dcerpc_binding_handle_call_send(TALLOC_CTX *mem_ctx,
 		return tevent_req_post(req, ev);
 	}
 
-	if (opnum >= table->num_calls) {
+	if ((opnum - table->off_calls) >= table->num_calls) {
 		tevent_req_nterror(req, NT_STATUS_INTERNAL_ERROR);
 		return tevent_req_post(req, ev);
 	}
 
 	state->h = h;
-	state->call = &table->calls[opnum];
+	state->call = &table->calls[opnum - table->off_calls];
 
 	state->r_mem = r_mem;
 	state->r_ptr = r_ptr;

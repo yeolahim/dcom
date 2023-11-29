@@ -88,7 +88,15 @@ sub Boilerplate_Iface($)
 	my $uname = uc $name;
 	my $uuid = Parse::Pidl::Util::make_str($interface->{PROPERTIES}->{uuid});
 	my $if_version = $interface->{PROPERTIES}->{version};
+    my $dispbase = "";
 
+    if (defined($interface->{BASE})) {
+        $dispbase = "
+    if (opnum < dcerpc_table_$name.off_calls) {
+        return $interface->{BASE}\__op_ndr_pull(dce_call, mem_ctx, pull, r);
+    }
+    opnum -= dcerpc_table_$name.off_calls;
+";
 	pidl "
 static NTSTATUS $name\__op_bind(struct dcesrv_call_state *dce_call, const struct dcesrv_interface *iface, uint32_t if_version)
 {
@@ -114,6 +122,7 @@ static NTSTATUS $name\__op_ndr_pull(struct dcesrv_call_state *dce_call, TALLOC_C
 	uint16_t opnum = dce_call->pkt.u.request.opnum;
 
 	dce_call->fault_code = 0;
+    $dispbase
 
 	if (opnum >= dcerpc_table_$name.num_calls) {
 		dce_call->fault_code = DCERPC_FAULT_OP_RNG_ERROR;

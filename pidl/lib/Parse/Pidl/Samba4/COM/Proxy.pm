@@ -121,9 +121,9 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 		next unless (has_property($a, "in"));
 		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
 			if (has_property($a, "out")) {
-                $res .= "\tif (*$a->{NAME}) {\n";
-				$res .= "\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &(*(r.in.$a->{NAME}))->obj, (struct IUnknown*)(*$a->{NAME})));\n";
-                $res .= "\t}\n";
+                #$res .= "\tif (*$a->{NAME}) {\n";
+				#$res .= "\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &(*(r.in.$a->{NAME}))->obj, (struct IUnknown*)(*$a->{NAME})));\n";
+                #$res .= "\t}\n";
 			} else {
                 $res .= "\tif ($a->{NAME}) {\n";
                 $res .="\t\tr.in.$a->{NAME} = talloc_zero(mem_ctx, struct MInterfacePointer);\n";

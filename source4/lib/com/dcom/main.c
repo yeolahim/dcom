@@ -722,9 +722,8 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 		DEBUG(0, ("dcom_get_pipe: OXID not found\n"));
 		return NT_STATUS_NOT_SUPPORTED;
 	}
-
 	p = ox->pipe;
-
+    DEBUG(0, ("dcom_get_pipe_impl ox->pipe ok %p\n", (void*)p));
 	table = ndr_table_by_uuid(iid);
 	if (table == NULL) {
 		char *guid_str;
@@ -742,14 +741,20 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 	if (p) {
 		if (!GUID_equal(&p->syntax.uuid, iid)) {
 			ox->pipe->syntax.uuid = *iid;
-
+            DEBUG(0, ("dcom_get_pipe_impl interface will always be present\n"));
 			/* interface will always be present, so
 			 * idl_iface_by_uuid can't return NULL */
-			/* status = dcerpc_secondary_context(p, &p2, idl_iface_by_uuid(&iid)); */
-			status = dcerpc_alter_context(p, p, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
-		} else
+            memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
+			status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
+            ox->pipe = *pp;
+			//status = dcerpc_alter_context(p, ctx, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
+            // status = NT_STATUS_OK;
+		    // *pp = p;
+		}
+        else {
 			status = NT_STATUS_OK;
-		*pp = p;
+		    *pp = p;
+        }
 		return status;
 	}
 
@@ -758,7 +763,7 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 	/* To avoid delays whe connecting nonroutable bindings we 1st check binding starting with hostname */
 	/* FIX:low create concurrent connections to all bindings, fastest wins - Win2k and newer does this way???? */
 	isimilar = find_similar_binding(ox->bindings->stringbindings, ox->host);
-	DEBUG(1, (__location__": dcom_get_pipe: host=%s, similar=%s\n", ox->host, ox->bindings->stringbindings[isimilar] ? ox->bindings->stringbindings[isimilar]->NetworkAddr : "None"));
+	DEBUG(0, (__location__": dcom_get_pipe: host=%s, similar=%s\n", ox->host, ox->bindings->stringbindings[isimilar] ? ox->bindings->stringbindings[isimilar]->NetworkAddr : "None"));
 	j = isimilar - 1;
 	for (i = 0; ox->bindings->stringbindings[i]; ++i) {
 		if (!ox->bindings->stringbindings[++j]) j = 0;
@@ -794,19 +799,18 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 	//DCOM_TODO: DEBUG(2, ("Successfully connected to OXID %llx\n", (long long)oxid));
 
 	ox->pipe = *pp = p;
-
+    DEBUG(0, ("dcom_get_pipe_impl ok\n"));
 	return NT_STATUS_OK;
 }
 
 NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct GUID* iid, struct dcerpc_binding_handle **ph)
 {
-  struct dcerpc_pipe *p = NULL;
-  NTSTATUS status = dcom_get_pipe_impl(ctx, obj, iid, &p);
-	if (NT_STATUS_IS_OK(status)) {
-		*ph = p->binding_handle;
-		return NT_STATUS_OK;
-	}
-	return NT_STATUS(-1);
+    struct dcerpc_pipe *p = NULL;
+    NTSTATUS status = dcom_get_pipe_impl(ctx, obj, iid, &p);
+    if (NT_STATUS_IS_OK(status)) {
+        *ph = p->binding_handle;
+    }
+    return status;
 }
 
 NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)

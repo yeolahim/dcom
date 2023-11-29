@@ -551,6 +551,7 @@ struct ndr_interface_table {
 	const char *name;
 	struct ndr_syntax_id syntax_id;
 	const char *helpstring;
+    uint32_t off_calls;
 	uint32_t num_calls;
 	const struct ndr_interface_call *calls;
 	uint32_t num_public_structs;

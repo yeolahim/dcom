@@ -911,6 +911,8 @@ sub ParseInterface($)
 
 	return { 
 		NAME => $idl->{NAME},
+        BASE => $idl->{BASE},
+        INHERITED_FUNCTIONS => $idl->{INHERITED_FUNCTIONS},
 		UUID => lc(has_property($idl, "uuid") // ''),
 		VERSION => $version,
 		TYPE => "INTERFACE",
@@ -1431,7 +1433,7 @@ sub ValidInterface($)
 			fatal($interface, "Object interfaces must have version 0.0 ($interface->{NAME})");
 		}
 
-		if (!defined($interface->{BASE}) && 
+		if (!defined($interface->{BASE}) &&
 			not ($interface->{NAME} eq "IUnknown")) {
 			fatal($interface, "Object interfaces must all derive from IUnknown ($interface->{NAME})");
 		}

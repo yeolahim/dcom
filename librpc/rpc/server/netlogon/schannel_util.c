@@ -161,8 +161,8 @@ static NTSTATUS dcesrv_netr_check_schannel_once(struct dcesrv_call_state *dce_ca
 	const char *opname = "<unknown>";
 	const char *reason = "<unknown>";
 
-	if (opnum < ndr_table_netlogon.num_calls) {
-		opname = ndr_table_netlogon.calls[opnum].name;
+	if ((opnum - ndr_table_netlogon.off_calls) < ndr_table_netlogon.num_calls) {
+		opname = ndr_table_netlogon.calls[opnum - ndr_table_netlogon.off_calls].name;
 	}
 
 	if (s->auth_type == DCERPC_AUTH_TYPE_SCHANNEL) {

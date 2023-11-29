@@ -60,10 +60,10 @@ static const struct ndr_interface_call *find_function(
 	const struct ndr_interface_table *p,
 	unsigned int function_no)
 {
-	if (function_no >= p->num_calls) {
+	if ((function_no - p->off_calls) >= p->num_calls) {
 		return NULL;
 	}
-	return &p->calls[function_no];
+	return &p->calls[function_no - p->off_calls];
 }
 
 /*

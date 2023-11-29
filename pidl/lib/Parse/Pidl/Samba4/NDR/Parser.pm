@@ -2405,16 +2405,18 @@ sub ParsePipePrintChunk($$)
 
 #####################################################################
 # parse a function - print side
-sub ParseFunctionPrint($$)
+sub ParseFunctionPrint($$$)
 {
-	my($self, $fn) = @_;
+	my($self, $interface, $fn) = @_;
 	my $ndr = "ndr";
 
 	$self->pidl_hdr("void ndr_print_$fn->{NAME}(struct ndr_print *$ndr, const char *name, int flags, const struct $fn->{NAME} *r);");
+	# DCOM_TDO: $self->pidl_hdr("void ndr_print_$interface->{NAME}_$fn->{NAME}(struct ndr_print *$ndr, const char *name, int flags, const struct $fn->{NAME} *r);");
 
 	return if has_property($fn, "noprint");
 
 	$self->pidl("_PUBLIC_ void ndr_print_$fn->{NAME}(struct ndr_print *$ndr, const char *name, int flags, const struct $fn->{NAME} *r)");
+	#DCOM_TODO: $self->pidl("_PUBLIC_ void ndr_print_$interface->{NAME}_$fn->{NAME}(struct ndr_print *$ndr, const char *name, int flags, const struct $fn->{NAME} *r)");
 	$self->pidl("{");
 	$self->indent;
 
@@ -2472,12 +2474,13 @@ sub ParseFunctionPrint($$)
 
 #####################################################################
 # parse a function
-sub ParseFunctionPush($$)
+sub ParseFunctionPush($$$)
 { 
-	my($self, $fn) = @_;
+	my($self, $interface, $fn) = @_;
 	my $ndr = "ndr";
 
 	$self->fn_declare("push", $fn, "enum ndr_err_code ndr_push_$fn->{NAME}(struct ndr_push *$ndr, int flags, const struct $fn->{NAME} *r)") or return;
+	#DCOM_TODO: $self->fn_declare("push", $fn, "enum ndr_err_code ndr_push_$interface->{NAME}_$fn->{NAME}(struct ndr_push *$ndr, int flags, const struct $fn->{NAME} *r)") or return;
 
 	return if has_property($fn, "nopush");
 
@@ -2566,13 +2569,14 @@ sub AllocateArrayLevel($$$$$$)
 
 #####################################################################
 # parse a function
-sub ParseFunctionPull($$)
+sub ParseFunctionPull($$$)
 { 
-	my($self,$fn) = @_;
+	my($self,$interface,$fn) = @_;
 	my $ndr = "ndr";
 
 	# pull function args
 	$self->fn_declare("pull", $fn, "enum ndr_err_code ndr_pull_$fn->{NAME}(struct ndr_pull *$ndr, int flags, struct $fn->{NAME} *r)") or return;
+	#DCOM_TODO: $self->fn_declare("pull", $fn, "enum ndr_err_code ndr_pull_$interface->{NAME}_$fn->{NAME}(struct ndr_pull *$ndr, int flags, struct $fn->{NAME} *r)") or return;
 
 	$self->pidl("{");
 	$self->indent;
@@ -2786,9 +2790,9 @@ sub FunctionCallPipes($$)
 	}
 }
 
-sub FunctionCallEntry($$)
+sub FunctionCallEntry($$$)
 {
-	my ($self, $d) = @_;
+	my ($self, $interface, $d) = @_;
 	return 0 if not defined($d->{OPNUM});
 
 	my $in_pipes = 0;
@@ -2822,6 +2826,9 @@ sub FunctionCallEntry($$)
 	$self->pidl("\t\t(ndr_push_flags_fn_t) ndr_push_$d->{NAME},");
 	$self->pidl("\t\t(ndr_pull_flags_fn_t) ndr_pull_$d->{NAME},");
 	$self->pidl("\t\t(ndr_print_function_t) ndr_print_$d->{NAME},");
+	#DCOM_TODO: $self->pidl("\t\t(ndr_push_flags_fn_t) ndr_push_$interface->{NAME}_$d->{NAME},");
+	#DCOM_TODO: $self->pidl("\t\t(ndr_pull_flags_fn_t) ndr_pull_$interface->{NAME}_$d->{NAME},");
+	#DCOM_TODO: $self->pidl("\t\t(ndr_print_function_t) ndr_print_$interface->{NAME}_$d->{NAME},");
 	$self->pidl("\t\t{ $in_pipes, $in_pipes_ptr },");
 	$self->pidl("\t\t{ $out_pipes, $out_pipes_ptr },");
 	$self->pidl("\t},");
@@ -2876,7 +2883,7 @@ sub FunctionTable($$)
 	$self->pidl("static const struct ndr_interface_call $interface->{NAME}\_calls[] = {");
 
 	foreach my $d (@{$interface->{INHERITED_FUNCTIONS}},@{$interface->{FUNCTIONS}}) {
-		$count += $self->FunctionCallEntry($d);
+		$count += $self->FunctionCallEntry($interface, $d);
 	}
 	$self->pidl("\t{ .name = NULL }");
 	$self->pidl("};");
@@ -2913,6 +2920,11 @@ sub FunctionTable($$)
 		$self->pidl("\t},");
 		$self->pidl("\t.helpstring\t= NDR_$uname\_HELPSTRING,");
 	}
+    if (defined($interface->{BASE})) {
+        $self->pidl("\t.off_calls\t= NDR_" . uc $interface->{BASE} . "_CALL_COUNT,");
+    } else {
+        $self->pidl("\t.off_calls\t= 0,");
+    }
 	$self->pidl("\t.num_calls\t= $count,");
 	$self->pidl("\t.calls\t\t= $interface->{NAME}\_calls,");
 	$self->pidl("\t.num_public_structs\t= $count_public_structs,");
@@ -3170,8 +3182,8 @@ sub ParseInterface($$$)
 		($needed->{TypeFunctionName("ndr_print", $d)}) && $self->ParseTypePrintFunction($d, "r");
 
 		# Make sure we don't generate a function twice...
-		$needed->{TypeFunctionName("ndr_push", $d)} = 
-		    $needed->{TypeFunctionName("ndr_pull", $d)} = 
+		$needed->{TypeFunctionName("ndr_push", $d)} =
+		    $needed->{TypeFunctionName("ndr_pull", $d)} =
 			$needed->{TypeFunctionName("ndr_print", $d)} = 0;
 
 		($needed->{"ndr_size_$d->{NAME}"}) && $self->ParseTypeNdrSize($d);
@@ -3179,9 +3191,12 @@ sub ParseInterface($$$)
 
 	# Functions
 	foreach my $d (@{$interface->{FUNCTIONS}}) {
-		($needed->{"ndr_push_$d->{NAME}"}) && $self->ParseFunctionPush($d);
-		($needed->{"ndr_pull_$d->{NAME}"}) && $self->ParseFunctionPull($d);
-		($needed->{"ndr_print_$d->{NAME}"}) && $self->ParseFunctionPrint($d);
+		($needed->{"ndr_push_$d->{NAME}"}) && $self->ParseFunctionPush($interface, $d);
+		($needed->{"ndr_pull_$d->{NAME}"}) && $self->ParseFunctionPull($interface, $d);
+		($needed->{"ndr_print_$d->{NAME}"}) && $self->ParseFunctionPrint($interface, $d);
+		#DCOM_TODO: ($needed->{"ndr_push_$interface->{NAME}_$d->{NAME}"}) && $self->ParseFunctionPush($interface, $d);
+		#DCOM_TODO: ($needed->{"ndr_pull_$interface->{NAME}_$d->{NAME}"}) && $self->ParseFunctionPull($interface, $d);
+		#DCOM_TODO: ($needed->{"ndr_print_$interface->{NAME}_$d->{NAME}"}) && $self->ParseFunctionPrint($interface, $d);
 	}
 
         # Allow compilation of generated files where replacement functions
@@ -3255,7 +3270,7 @@ sub NeededElement($$$)
 
 	return if ($e->{TYPE} eq "EMPTY");
 
-	return if (ref($e->{TYPE}) eq "HASH" and 
+	return if (ref($e->{TYPE}) eq "HASH" and
 		       not defined($e->{TYPE}->{NAME}));
 
 	my ($t, $rt);
@@ -3295,12 +3310,15 @@ sub NeededElement($$$)
 	}
 }
 
-sub NeededFunction($$)
+sub NeededFunction($$$)
 {
-	my ($fn,$needed) = @_;
+	my ($interface,$fn,$needed) = @_;
 	$needed->{"ndr_pull_$fn->{NAME}"} = 1;
 	$needed->{"ndr_push_$fn->{NAME}"} = 1;
 	$needed->{"ndr_print_$fn->{NAME}"} = 1;
+	#DCOM_TODO:$needed->{"ndr_pull_$interface->{NAME}_$fn->{NAME}"} = 1;
+	#DCOM_TODO:$needed->{"ndr_push_$interface->{NAME}_$fn->{NAME}"} = 1;
+	#DCOM_TODO:$needed->{"ndr_print_$interface->{NAME}_$fn->{NAME}"} = 1;
 	foreach my $e (@{$fn->{ELEMENTS}}) {
 		$e->{PARENT} = $fn;
 		NeededElement($e, $_, $needed) foreach ("pull", "push", "print");
@@ -3333,7 +3351,7 @@ sub NeededType($$$)
 sub NeededInterface($$)
 {
 	my ($interface,$needed) = @_;
-	NeededFunction($_, $needed) foreach (@{$interface->{FUNCTIONS}});
+	NeededFunction($interface, $_, $needed) foreach (@{$interface->{FUNCTIONS}});
 	foreach (reverse @{$interface->{TYPES}}) {
 
 		if (has_property($_, "public")) {
