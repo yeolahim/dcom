@@ -723,7 +723,7 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 		return NT_STATUS_NOT_SUPPORTED;
 	}
 	p = ox->pipe;
-    DEBUG(0, ("dcom_get_pipe_impl ox->pipe ok %p\n", (void*)p));
+  DEBUG(0, ("dcom_get_pipe_impl ox->pipe ok %p\n", (void*)p));
 	table = ndr_table_by_uuid(iid);
 	if (table == NULL) {
 		char *guid_str;
@@ -741,20 +741,22 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 	if (p) {
 		if (!GUID_equal(&p->syntax.uuid, iid)) {
 			ox->pipe->syntax.uuid = *iid;
-            DEBUG(0, ("dcom_get_pipe_impl interface will always be present\n"));
+      DEBUG(0, ("dcom_get_pipe_impl interface will always be present\n"));
 			/* interface will always be present, so
 			 * idl_iface_by_uuid can't return NULL */
-            memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
+      //memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
+			//*pp = p;
+			//status = dcerpc_pipe_auth(ctx, pp, p->binding, ndr_table_by_uuid(iid), ctx->dcom->credentials->credentials, ctx->lp_ctx);
 			status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
-            ox->pipe = *pp;
+      ox->pipe = *pp;
 			//status = dcerpc_alter_context(p, ctx, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
-            // status = NT_STATUS_OK;
-		    // *pp = p;
+      // status = NT_STATUS_OK;
+		  //*pp = p;
 		}
-        else {
+    else {
 			status = NT_STATUS_OK;
-		    *pp = p;
-        }
+		  *pp = p;
+    }
 		return status;
 	}
 
