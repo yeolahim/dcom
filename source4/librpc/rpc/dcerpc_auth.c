@@ -239,7 +239,7 @@ static void bind_auth_next_gensec_done(struct tevent_req *subreq)
 		.auth_type = DCERPC_AUTH_TYPE_NONE,
 	};
 	sec->tmp_auth_info.in = &state->in_auth_info;
-	sec->tmp_auth_info.mem = talloc_steal(p->conn, state);
+	sec->tmp_auth_info.mem = state;
 	sec->tmp_auth_info.out = &state->out_auth_info;
 
 	if (!more_processing) {
@@ -492,7 +492,7 @@ static void dcerpc_bind_auth_gensec_done(struct tevent_req *subreq)
 		.auth_type = DCERPC_AUTH_TYPE_NONE,
 	};
 	sec->tmp_auth_info.in = &state->in_auth_info;
-	sec->tmp_auth_info.mem = talloc_steal(p->conn, state);;
+	sec->tmp_auth_info.mem = state;
 	sec->tmp_auth_info.out = &state->out_auth_info;
 
 	/* The first request always is a dcerpc_bind. The subsequent ones

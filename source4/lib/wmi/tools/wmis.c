@@ -214,9 +214,12 @@ int main(int argc, char **argv)
 	struct IEnumWbemClassObject *pEnum = NULL;
 	uint32_t cnt = 0;
 	struct BSTR queryLanguage;
-	struct BSTR query;
+	//struct BSTR query;
 	struct loadparm_context *lp_ctx =  NULL;
 
+    (void)queryLanguage;
+    (void)cnt;
+    (void)pEnum;
 	frame = talloc_init("root");
 	//frame = talloc_stackframe();
 	const_argv = discard_const_p(const char *, argv);
@@ -235,19 +238,19 @@ int main(int argc, char **argv)
 	WERR_CHECK("WBEM_RemoteExecute.");
 	printf("2: ReturnCode: %d\n", cnt);
 
-	printf("3: Monitoring directory C:\\wmi_test_dir_tmp. Please create/delete files in that directory to see notifications, after 4 events program quits.\n");
-	query.data = "SELECT * FROM __InstanceOperationEvent WITHIN 1 WHERE Targetinstance ISA 'CIM_DirectoryContainsFile' and TargetInstance.GroupComponent= 'Win32_Directory.Name=\"C:\\\\\\\\wmi_test_dir_tmp\"'";
-	queryLanguage.data = "WQL";
-	result = IWbemServices_ExecNotificationQuery(pWS, ctx, queryLanguage,
-		query, WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
-	WERR_CHECK("WMI query execute.");
-	for (cnt = 0; cnt < 4; ++cnt) {
-		struct IWbemClassObject *co;
-		uint32_t ret;
-		result = IEnumWbemClassObject_SmartNext(pEnum, ctx, 0xFFFFFFFF, 1, &co, &ret);
-    		WERR_CHECK("IEnumWbemClassObject_Next.");
-		//DCOM_TODO: printf("%s\n", co->obj_class->__CLASS);
-	}
+	// printf("3: Monitoring directory C:\\wmi_test_dir_tmp. Please create/delete files in that directory to see notifications, after 4 events program quits.\n");
+	// query.data = "SELECT * FROM __InstanceOperationEvent WITHIN 1 WHERE Targetinstance ISA 'CIM_DirectoryContainsFile' and TargetInstance.GroupComponent= 'Win32_Directory.Name=\"C:\\\\\\\\wmi_test_dir_tmp\"'";
+	// queryLanguage.data = "WQL";
+	// result = IWbemServices_ExecNotificationQuery(pWS, ctx, queryLanguage,
+	// 	query, WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
+	// WERR_CHECK("WMI query execute.");
+	// for (cnt = 0; cnt < 4; ++cnt) {
+	// 	struct IWbemClassObject *co;
+	// 	uint32_t ret;
+	// 	result = IEnumWbemClassObject_SmartNext(pEnum, ctx, 0xFFFFFFFF, 1, &co, &ret);
+    // 		WERR_CHECK("IEnumWbemClassObject_Next.");
+	// 	//DCOM_TODO: printf("%s\n", co->obj_class->__CLASS);
+	// }
 
 error:
 	status = werror_to_ntstatus(result);

@@ -26,6 +26,7 @@
 #include "librpc/gen_ndr/com_dcom.h"
 #include "librpc/gen_ndr/dcom.h"
 #include "librpc/rpc/dcerpc.h"
+#include "librpc/rpc/dcerpc_proto.h"
 #include "lib/com/dcom/dcom.h"
 #include "librpc/ndr/ndr_table.h"
 #include "../lib/util/dlinklist.h"
@@ -338,6 +339,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 	TALLOC_CTX *loc_ctx = NULL;
     WERROR result;
     struct ORPCTHIS this_object;
+    char* guid_str;
 
 	status = dcom_connect_host(ctx, &p, server);
 	if (NT_STATUS_IS_ERR(status)) {
@@ -598,6 +600,8 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
     // printf("pds %p\n", pds);
     // printf("pds.stringbindings %p\n", pds->stringbindings);
 	m = object_exporter_update_oxid(ctx, oxid, pds);
+    guid_str = GUID_string(NULL, iid);
+    DEBUG(0, ("dcom_create_object ox->pipe ok %p->%p %s %lx\n", (void*)m, (void*)p, guid_str, oxid));
     // printf("bindings %p\n", m->bindings);
     // printf("bindings.stringbindings %p\n", m->bindings->stringbindings);
     // talloc_report_full(pds->stringbindings, stdout);
@@ -621,7 +625,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 	}
 	if (!m->rem_unknown) {
 		if (!ru_template) {
-			DEBUG(1,("dcom_create_object: Cannot Create IRemUnknown - template interface not available\n"));
+			DEBUG(0,("dcom_create_object: Cannot Create IRemUnknown - template interface not available\n"));
 			hr = HRES_ERROR(W_ERROR_V(WERR_GEN_FAILURE));
 		}
 		m->rem_unknown = talloc_zero(m, struct IRemUnknown);
@@ -631,6 +635,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 		GUID_from_string(COM_IREMUNKNOWN_UUID, &m->rem_unknown->obj.iid);
 		m->rem_unknown->obj.u_objref.u_standard.std.ipid = ipidRemUnknown;
 		m->rem_unknown->vtable = (struct IRemUnknown_vtable *)dcom_proxy_vtable_by_iid(&m->rem_unknown->obj.iid);
+        DEBUG(0, ("rem_unknown vtable %p\n", m->rem_unknown->vtable));
 		/* TODO:avg copy stringbindigs?? */
 	}
     // talloc_report_full(pds->stringbindings, stdout);
@@ -716,18 +721,18 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 	struct dcerpc_pipe *p;
 	struct dcom_object_exporter *ox;
 	const struct ndr_interface_table *table;
+	char *guid_str;
 
 	ox = object_exporter_by_oxid(ctx, obj->u_objref.u_standard.std.oxid);
 	if (!ox) {
 		DEBUG(0, ("dcom_get_pipe: OXID not found\n"));
 		return NT_STATUS_NOT_SUPPORTED;
 	}
+	guid_str = GUID_string(NULL, iid);
 	p = ox->pipe;
-  DEBUG(0, ("dcom_get_pipe_impl ox->pipe ok %p\n", (void*)p));
+    DEBUG(0, ("dcom_get_pipe_impl ox->pipe ok %p->%p %s %lx\n", (void*)ox, (void*)p, guid_str, ox->oxid));
 	table = ndr_table_by_uuid(iid);
 	if (table == NULL) {
-		char *guid_str;
-		guid_str = GUID_string(NULL, iid);
 		DEBUG(0,(__location__": dcom_get_pipe - unrecognized interface{%s}\n", guid_str));
 		talloc_free(guid_str);
 		return NT_STATUS_NOT_SUPPORTED;
@@ -747,11 +752,15 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
       //memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
 			//*pp = p;
 			//status = dcerpc_pipe_auth(ctx, pp, p->binding, ndr_table_by_uuid(iid), ctx->dcom->credentials->credentials, ctx->lp_ctx);
-			status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
-      ox->pipe = *pp;
+            //ox->rem_unknown->vtable->RemRelease(ox->rem_unknown, ctx, 0, NULL);
+            //status = dcerpc_auth3(p, ctx);
+			//status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
+            //ox->pipe = *pp;
+           //status = dcerpc_bind_auth_none(p, ndr_table_by_uuid(iid));
 			//status = dcerpc_alter_context(p, ctx, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
-      // status = NT_STATUS_OK;
-		  //*pp = p;
+            // status = NT_STATUS_OK;
+            //DEBUG(0, ("auth status %x\n", NT_STATUS_V(status)));
+		    *pp = p;
 		}
     else {
 			status = NT_STATUS_OK;
@@ -873,7 +882,7 @@ WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, 
 			DEBUG(0, ("Unable to find proxy class for interface with IID %s\n", GUID_string(ctx, &o->iid)));
 			return W_ERROR(NDR_ERR_INVALID_POINTER);
 		}
-
+        printf("Release for interface with IID %s\n", GUID_string(ctx, &o->iid));
 		p->vtable->Release = dcom_release;
 
 		ox = object_exporter_by_oxid(ctx, o->u_objref.u_standard.std.oxid);
@@ -999,10 +1008,14 @@ uint32_t dcom_release_recv(struct composite_context *c)
 
 uint32_t dcom_release(struct IUnknown *interface, TALLOC_CTX *mem_ctx)
 {
-	struct composite_context *c;
-
-	c = dcom_release_send(interface, mem_ctx);
-	return dcom_release_recv(c);
+    struct IRemUnknown_vtable *ru;
+	struct REMINTERFACEREF iref;
+    struct GUID remunkid = {0x00000131,0x0000,0x0000,{0xc0,0x00},{0x00,0x00,0x00,0x00,0x00,0x46}};
+    ru = (struct IRemUnknown_vtable *)dcom_proxy_vtable_by_iid(&remunkid);
+	iref.ipid = IUnknown_ipid(interface);
+	iref.cPublicRefs = 5;
+	iref.cPrivateRefs = 0;
+    return W_ERROR_V(ru->RemRelease((struct IRemUnknown*)interface, mem_ctx, 0, &iref));
 }
 
 // void dcom_proxy_async_call_recv_pipe_send_rpc(struct composite_context *c_pipe)
