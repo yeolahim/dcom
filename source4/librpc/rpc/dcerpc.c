@@ -749,8 +749,8 @@ static NTSTATUS ncacn_pull_pkt_auth(struct dcecli_connection *c,
 /* 
    push a dcerpc request packet into a blob, possibly signing it.
 */
-static NTSTATUS ncacn_push_request_sign(struct dcecli_connection *c, 
-					 DATA_BLOB *blob, TALLOC_CTX *mem_ctx, 
+static NTSTATUS ncacn_push_request_sign(struct dcecli_connection *c,
+					 DATA_BLOB *blob, TALLOC_CTX *mem_ctx,
 					 size_t sig_size,
 					 struct ncacn_packet *pkt)
 {
@@ -1741,7 +1741,7 @@ static void dcerpc_ship_next_request(struct dcecli_connection *c)
 		}
 
 		pkt.u.request.alloc_hint = remaining;
-		pkt.u.request.stub_and_verifier.data = stub_data->data + 
+		pkt.u.request.stub_and_verifier.data = stub_data->data +
 			(stub_data->length - remaining);
 		pkt.u.request.stub_and_verifier.length = chunk;
 
@@ -2171,6 +2171,99 @@ struct tevent_req *dcerpc_alter_context_send(TALLOC_CTX *mem_ctx,
 	return req;
 }
 
+struct tevent_req *dcerpc_alter_pipe_context_send(TALLOC_CTX *mem_ctx,
+					     struct tevent_context *ev,
+					     struct dcerpc_pipe *p,
+					     const struct ndr_syntax_id *syntax,
+					     const struct ndr_syntax_id *transfer_syntax)
+{
+	struct tevent_req *req;
+	struct dcerpc_alter_context_state *state;
+	struct ncacn_packet pkt;
+	DATA_BLOB blob;
+	NTSTATUS status;
+	struct rpc_request *subreq;
+	uint32_t flags;
+
+	req = tevent_req_create(mem_ctx, &state,
+				struct dcerpc_alter_context_state);
+	if (req == NULL) {
+		return NULL;
+	}
+
+	state->ev = ev;
+	state->p = p;
+
+	p->syntax = *syntax;
+	p->transfer_syntax = *transfer_syntax;
+
+	flags = dcerpc_binding_get_flags(p->binding);
+
+	init_ncacn_hdr(p->conn, &pkt);
+
+	pkt.ptype = DCERPC_PKT_ALTER;
+	pkt.pfc_flags = DCERPC_PFC_FLAG_FIRST | DCERPC_PFC_FLAG_LAST;
+	pkt.call_id = p->conn->call_id;
+	pkt.auth_length = 0;
+
+	if (flags & DCERPC_CONCURRENT_MULTIPLEX) {
+		pkt.pfc_flags |= DCERPC_PFC_FLAG_CONC_MPX;
+	}
+
+	pkt.u.alter.max_xmit_frag = p->conn->srv_max_xmit_frag;
+	pkt.u.alter.max_recv_frag = p->conn->srv_max_recv_frag;
+	pkt.u.alter.assoc_group_id = dcerpc_binding_get_assoc_group_id(p->binding);
+	pkt.u.alter.num_contexts = 1;
+	pkt.u.alter.ctx_list = talloc_zero_array(state, struct dcerpc_ctx_list,
+						 pkt.u.alter.num_contexts);
+	if (tevent_req_nomem(pkt.u.alter.ctx_list, req)) {
+		return tevent_req_post(req, ev);
+	}
+	pkt.u.alter.ctx_list[0].context_id = p->context_id;
+	pkt.u.alter.ctx_list[0].num_transfer_syntaxes = 1;
+	pkt.u.alter.ctx_list[0].abstract_syntax = p->syntax;
+	pkt.u.alter.ctx_list[0].transfer_syntaxes = &p->transfer_syntax;
+	pkt.u.alter.auth_info = data_blob(NULL, 0);
+
+	/* construct the NDR form of the packet */
+	status = dcerpc_ncacn_push_auth(&blob,
+				state,
+				&pkt,
+				p->conn->security_state.tmp_auth_info.out);
+	if (tevent_req_nterror(req, status)) {
+		return tevent_req_post(req, ev);
+	}
+
+	/*
+	 * we allocate a dcerpc_request so we can be in the same
+	 * request queue as normal requests
+	 */
+	subreq = talloc_zero(state, struct rpc_request);
+	if (tevent_req_nomem(subreq, req)) {
+		return tevent_req_post(req, ev);
+	}
+
+	subreq->state = RPC_REQUEST_PENDING;
+	subreq->call_id = pkt.call_id;
+	subreq->async.private_data = req;
+	subreq->async.callback = dcerpc_alter_context_fail_handler;
+	subreq->p = p;
+	subreq->recv_handler = dcerpc_alter_context_recv_handler;
+	DLIST_ADD_END(p->conn->pending, subreq);
+	talloc_set_destructor(subreq, dcerpc_req_dequeue);
+
+	status = dcerpc_send_request(p->conn, &blob, true);
+	if (tevent_req_nterror(req, status)) {
+		return tevent_req_post(req, ev);
+	}
+
+	tevent_add_timer(ev, subreq,
+			 timeval_current_ofs(DCERPC_REQUEST_TIMEOUT, 0),
+			 dcerpc_timeout_handler, subreq);
+
+	return req;
+}
+
 static void dcerpc_alter_context_fail_handler(struct rpc_request *subreq)
 {
 	struct tevent_req *req =
@@ -2298,7 +2391,7 @@ NTSTATUS dcerpc_alter_context_recv(struct tevent_req *req)
 /* 
    send a dcerpc alter_context request
 */
-_PUBLIC_ NTSTATUS dcerpc_alter_context(struct dcerpc_pipe *p, 
+_PUBLIC_ NTSTATUS dcerpc_alter_context(struct dcerpc_pipe *p,
 			      TALLOC_CTX *mem_ctx,
 			      const struct ndr_syntax_id *syntax,
 			      const struct ndr_syntax_id *transfer_syntax)
@@ -2311,6 +2404,47 @@ _PUBLIC_ NTSTATUS dcerpc_alter_context(struct dcerpc_pipe *p,
 
 	subreq = dcerpc_alter_context_send(mem_ctx, ev,
 					   p, syntax, transfer_syntax);
+	if (subreq == NULL) {
+		return NT_STATUS_NO_MEMORY;
+	}
+
+	ok = tevent_req_poll(subreq, ev);
+	if (!ok) {
+		NTSTATUS status;
+		status = map_nt_error_from_unix_common(errno);
+		return status;
+	}
+
+	return dcerpc_alter_context_recv(subreq);
+}
+
+_PUBLIC_ NTSTATUS dcerpc_alter_pipe_context(struct dcerpc_pipe *p,
+			    TALLOC_CTX *mem_ctx,
+			    struct GUID* iid,
+                uint32_t context_id)
+{
+	struct tevent_req *subreq;
+	struct tevent_context *ev = p->conn->event_ctx;
+    struct dcerpc_auth auth;
+    struct dcecli_security* security = &p->conn->security_state;
+	bool ok;
+
+	p->context_id = context_id;
+    p->syntax.uuid = *iid;
+
+	/* TODO: create a new event context here */
+    auth.auth_context_id = security->auth_context_id;
+    auth.auth_level = security->auth_level;
+    auth.auth_type = security->auth_type;
+    auth.auth_pad_length = 0;
+    auth.credentials = data_blob_talloc_zero(mem_ctx, 0);
+
+    security->tmp_auth_info.out = &auth;
+
+	subreq = dcerpc_alter_context_send(mem_ctx, ev,
+					   p, &p->syntax, &p->transfer_syntax);
+    data_blob_free(&auth.credentials);
+    security->tmp_auth_info.out = NULL;
 	if (subreq == NULL) {
 		return NT_STATUS_NO_MEMORY;
 	}

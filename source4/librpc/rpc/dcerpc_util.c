@@ -761,7 +761,7 @@ _PUBLIC_ bool dcerpc_transport_encrypted(struct dcerpc_pipe *p)
 
   this uses dcerpc_alter_context() to create a new dcerpc context_id
 */
-_PUBLIC_ NTSTATUS dcerpc_secondary_context(struct dcerpc_pipe *p, 
+_PUBLIC_ NTSTATUS dcerpc_secondary_context(struct dcerpc_pipe *p,
 				  struct dcerpc_pipe **pp2,
 				  const struct ndr_interface_table *table)
 {

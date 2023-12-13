@@ -216,14 +216,17 @@ struct composite_context *dcerpc_secondary_smb_send(struct dcecli_connection *c1
 						    struct dcecli_connection *c2,
 						    const char *pipe_name);
 NTSTATUS dcerpc_secondary_smb_recv(struct composite_context *c);
-NTSTATUS dcerpc_secondary_context(struct dcerpc_pipe *p, 
+NTSTATUS dcerpc_secondary_context(struct dcerpc_pipe *p,
 				  struct dcerpc_pipe **pp2,
 				  const struct ndr_interface_table *table);
-NTSTATUS dcerpc_alter_context(struct dcerpc_pipe *p, 
-			      TALLOC_CTX *mem_ctx,
-			      const struct ndr_syntax_id *syntax,
-			      const struct ndr_syntax_id *transfer_syntax);
-
+NTSTATUS dcerpc_alter_context(struct dcerpc_pipe *p,
+			    TALLOC_CTX *mem_ctx,
+			    const struct ndr_syntax_id *syntax,
+			    const struct ndr_syntax_id *transfer_syntax);
+NTSTATUS dcerpc_alter_pipe_context(struct dcerpc_pipe *p,
+			    TALLOC_CTX *mem_ctx,
+			    struct GUID* iid,
+                uint32_t context_id);
 NTSTATUS dcerpc_bind_auth(struct dcerpc_pipe *p,
 			  const struct ndr_interface_table *table,
 			  struct cli_credentials *credentials,

@@ -50,6 +50,8 @@ extern NTSTATUS dcom_proxy_init_IWbemCallResult(TALLOC_CTX *ctx);
 extern NTSTATUS dcom_proxy_init_IWbemObjectSink(TALLOC_CTX *ctx);
 extern NTSTATUS dcom_proxy_init_IRemUnknown(TALLOC_CTX *ctx);
 
+extern NTSTATUS dcom_proxy_IWbemClassObject_init(TALLOC_CTX *ctx);
+
 void wmi_init(struct com_context **ctx, struct cli_credentials *credentials,
 			  struct loadparm_context *lp_ctx)
 {
@@ -67,6 +69,8 @@ void wmi_init(struct com_context **ctx, struct cli_credentials *credentials,
     dcom_proxy_init_IWbemCallResult(*ctx);
     dcom_proxy_init_IWbemObjectSink(*ctx);
     dcom_proxy_init_IRemUnknown(*ctx);
+
+    dcom_proxy_IWbemClassObject_init(*ctx);
 
 	dcom_client_init(*ctx, credentials);
 }
@@ -96,10 +100,10 @@ WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, char *nsp
         talloc_free(mqi);
 
         result = IWbemLevel1Login_NTLMLogin(pL, ctx, ((uint16_t*)nspace), locale, flags, wbem_ctx, services);
-        DEBUG(0, ("IWbemServices: %p\n",*services));
+        DEBUG(0, ("IWbemServices: %p\n", *services));
         //result = IWbemLevel1Login_NTLMLogin(pL, ctx, 0, locale, flags, wbem_ctx, services);
         WERR_CHECK("Login to remote object.");
-	    result = W_ERROR(IUnknown_Release((struct IUnknown *)pL, ctx));
+	//DCOM_TODO:    result = W_ERROR(IUnknown_Release((struct IUnknown *)pL, ctx));
         WERR_CHECK("Release Login.");
         DEBUG(0, ("Done: %p\n",*services));
 end:

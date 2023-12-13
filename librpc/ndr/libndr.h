@@ -871,5 +871,11 @@ _PUBLIC_ void ndr_print_timeval(struct ndr_print *ndr, const char *name,
 				const struct timeval *t);
 
 
+typedef struct BSTR {
+	const char *data;/* [charset(UTF16)] */
+} BSTR;
+_PUBLIC_ enum ndr_err_code ndr_push_BSTR(struct ndr_push *ndr, int ndr_flags, const struct BSTR *r);
+_PUBLIC_ enum ndr_err_code ndr_pull_BSTR(struct ndr_pull *ndr, int ndr_flags, struct BSTR *r);
+_PUBLIC_ void ndr_print_BSTR(struct ndr_print *ndr, const char *name, const struct BSTR *r);
 
 #endif /* __LIBNDR_H__ */

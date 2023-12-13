@@ -99,12 +99,22 @@ sub ParseFunction($$)
 		$w_error = "";
 	}
 
+    my $inouts = "";
+	foreach my $a (@{$fn->{ELEMENTS}}) {
+		next unless (has_property($a, "in"));
+		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
+			if (has_property($a, "out")) {
+                $inouts .= "\tstruct MInterfacePointer* $a->{NAME}_mi = NULL;\n"
+            }
+        }
+    }
 	$res.="
 static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TALLOC_CTX *mem_ctx" . Parse::Pidl::Samba4::COM::Header::GetArgumentProtoList($fn) . ")
 {
 	struct dcerpc_binding_handle *h;
 	NTSTATUS status = dcom_binding_handle(d->ctx, &d->obj, &d->vtable->iid, &h);
 	struct $name r;
+$inouts
 	// struct rpc_request *req;
 
 	if (NT_STATUS_IS_ERR(status)) {
@@ -114,6 +124,7 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 	NDR_ZERO_STRUCT(r.in);
 	r.in.ORPCthis.version.MajorVersion = COM_MAJOR_VERSION;
 	r.in.ORPCthis.version.MinorVersion = COM_MINOR_VERSION;
+    r.in.ORPCthis.cid = d->obj.iid;
 ";
 
 	# Put arguments into r
@@ -121,10 +132,13 @@ static $tn dcom_proxy_$interface->{NAME}_$name(struct $interface->{NAME} *d, TAL
 		next unless (has_property($a, "in"));
 		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
 			if (has_property($a, "out")) {
-                #$res .= "\tif (*$a->{NAME}) {\n";
-				#$res .= "\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &(*(r.in.$a->{NAME}))->obj, (struct IUnknown*)(*$a->{NAME})));\n";
-                #$res .= "\t}\n";
+                $res .="\tr.in.$a->{NAME} = &$a->{NAME}_mi;\n";
+                $res .= "\tif ($a->{NAME} && *$a->{NAME}) {\n";
+                 $res .="\t\t$a->{NAME}_mi = talloc_zero(mem_ctx, struct MInterfacePointer);\n";
+				$res .= "\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &$a->{NAME}_mi->obj, (struct IUnknown*)(*$a->{NAME})));\n";
+                $res .= "\t}\n";
 			} else {
+                $res .="\tr.in.$a->{NAME} = NULL;\n";
                 $res .= "\tif ($a->{NAME}) {\n";
                 $res .="\t\tr.in.$a->{NAME} = talloc_zero(mem_ctx, struct MInterfacePointer);\n";
 				$res .="\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &r.in.$a->{NAME}->obj, (struct IUnknown*)$a->{NAME}));\n";

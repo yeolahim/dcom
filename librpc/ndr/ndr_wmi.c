@@ -51,7 +51,25 @@ enum ndr_err_code ndr_push_BSTR(struct ndr_push *ndr, int ndr_flags, const struc
 
 enum ndr_err_code ndr_pull_BSTR(struct ndr_pull *ndr, int ndr_flags, struct BSTR *r)
 {
-        return NDR_ERR_BAD_SWITCH;
+	uint32_t size_data_0 = 0;
+	uint32_t length_data_0 = 0;
+	uint32_t flags = 0;
+    enum ndr_err_code status;
+	NDR_PULL_CHECK_FLAGS(ndr, ndr_flags);
+	if (ndr_flags & NDR_SCALARS) {
+		NDR_CHECK(ndr_pull_align(ndr, 4));
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &flags));
+        NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &length_data_0));
+        NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &size_data_0));
+        flags = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_STR_NOTERM | LIBNDR_FLAG_STR_SIZE4);
+		status = ndr_pull_string(ndr, NDR_SCALARS, &r->data);
+		ndr->flags = flags;
+		return status;
+	}
+	if (ndr_flags & NDR_BUFFERS) {
+	}
+	return NDR_ERR_SUCCESS;
 }
 
 void ndr_print_BSTR(struct ndr_print *ndr, const char *name, const struct BSTR *r)

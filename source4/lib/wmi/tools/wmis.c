@@ -114,10 +114,10 @@ static void parse_args(int argc, const char *argv[],
 }
 
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
-                            DEBUG(0, ("ERROR: %s -> %x\n", msg, W_ERROR_V(result))); \
+                            DEBUG(0, ("%s:%d ERROR: %s -> %x\n", __FILE__, __LINE__, msg, W_ERROR_V(result))); \
                             goto error; \
                         } else { \
-                            DEBUG(0, ("OK   : %s\n", msg)); \
+                            DEBUG(0, ("%s:%d OK   : %s\n", __FILE__, __LINE__, msg)); \
                         }
 /*
 WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const char *nspace, const char *user, const char *password, const char *locale, uint32_t flags, const char *authority, struct IWbemContext* wbem_ctx, struct IWbemServices** services)
@@ -170,10 +170,16 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	ctx = talloc_new(0);
 
 	objectPath.data = "Win32_Process";
-    objectPath.flags = 0;
 	result = IWbemServices_GetObject(pWS, ctx, objectPath,
 					 WBEM_FLAG_RETURN_WBEM_COMPLETE, NULL, &wco, NULL);
 	WERR_CHECK("GetObject. ");
+    wco->obj = pWS->obj;
+    (void)methodName;
+    (void)inc;
+    (void)outc;
+    (void)in;
+    (void)out;
+    (void)v;
 
 	result = IWbemClassObject_GetMethod(wco, ctx, "Create", 0, &inc, &outc);
 	WERR_CHECK("IWbemClassObject_GetMethod.");
@@ -190,11 +196,12 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 					  NULL);
 	WERR_CHECK("IWbemServices_ExecMethod.");
 
-	if (ret_code) {
-		result = IWbemClassObject_Get(out->object_data, ctx, "ReturnValue", 0, &v, 0, 0);
-		WERR_CHECK("IWbemClassObject_Get(ReturnValue).");
-		*ret_code = v.v_uint32;
-	}
+	// if (ret_code) {
+	// 	result = IWbemClassObject_Get(out->object_data, ctx, "ReturnValue", 0, &v, 0, 0);
+	// 	WERR_CHECK("IWbemClassObject_Get(ReturnValue).");
+	// 	*ret_code = v.v_uint32;
+	// }
+    goto error;
 error:
 	talloc_free(ctx);
 	return result;
@@ -235,7 +242,7 @@ int main(int argc, char **argv)
 
 	printf("1: Creating directory C:\\wmi_test_dir_tmp using method Win32_Process.Create\n");
 	result = WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir_tmp", &cnt);
-	WERR_CHECK("WBEM_RemoteExecute.");
+	//WERR_CHECK("WBEM_RemoteExecute.");
 	printf("2: ReturnCode: %d\n", cnt);
 
 	// printf("3: Monitoring directory C:\\wmi_test_dir_tmp. Please create/delete files in that directory to see notifications, after 4 events program quits.\n");
@@ -255,6 +262,6 @@ int main(int argc, char **argv)
 error:
 	status = werror_to_ntstatus(result);
 	fprintf(stderr, "NTSTATUS: %s - %s\n", nt_errstr(status), get_friendly_nt_error_msg(status));
-	talloc_free(ctx);
+	//talloc_free(ctx);
 	return 1;
 }

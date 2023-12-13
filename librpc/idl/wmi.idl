@@ -22,12 +22,6 @@ import "misc.idl";
 ]
 interface IWbemClassObject : IUnknown
 {
-
-	typedef [noprint] struct {
-		[value(0x72657355)] uint32 flags;
-		[string, charset(UTF16)] uint16 data[];
-	} BSTR;
-
     WERROR Delete(
         [in, string, charset(UTF16)] uint16 *wszName
         );
@@ -332,7 +326,7 @@ coclass WbemClassObject
 	WERROR GetObject(
 		[in] BSTR strObjectPath,
 		[in] long lFlags,
-		[in] IWbemContext* pCtx,
+		[in, unique] IWbemContext* pCtx,
 		[out, in, unique] IWbemClassObject** ppObject,
 		[out, in, unique] IWbemCallResult** ppCallResult
 		);

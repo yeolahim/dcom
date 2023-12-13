@@ -32,6 +32,7 @@ struct rpc_request;
 typedef struct GUID CLSID;
 typedef struct GUID IID;
 typedef struct COMVERSION COMVERSION;
+typedef struct BSTR BSTR;
 
 #define WERROR_CHECK(call) do { \
 	WERROR _status; \
@@ -53,6 +54,13 @@ struct dcom_client_context {
 		struct IRemUnknown *rem_unknown;
 		struct DUALSTRINGARRAY *bindings;
 		struct dcerpc_pipe *pipe;
+        struct dcom_object_handle {
+            uint64_t oid;
+            struct GUID iid;
+            uint32_t context_id;
+            struct dcerpc_binding_handle *handle;
+            struct dcom_object_handle *prev, *next;
+        } *object_handles;
 		struct dcom_object_exporter *prev, *next;
 	} *object_exporters;
 };
@@ -83,22 +91,25 @@ int find_similar_binding(struct STRINGBINDING **sb, const char *host);
 struct dcom_client_context *dcom_client_init(struct com_context *ctx, struct cli_credentials *credentials);
 struct dcom_object_exporter *object_exporter_by_oxid(struct com_context *ctx, uint64_t oxid);
 struct dcom_object_exporter *object_exporter_by_ip(struct com_context *ctx, struct IUnknown *ip);
+struct dcom_object_handle *object_exporter_get_handle(struct dcom_object_exporter *ox, struct OBJREF* obj, struct GUID* iid);
+struct dcom_object_handle *object_exporter_update_handle(struct com_context *ctx, struct dcom_object_exporter *ox, struct OBJREF* obj, struct GUID* iid, uint32_t context_id);
+
 HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const char *server, int num_ifaces, struct GUID *iid, struct IUnknown ***ip, HRESULT *results);
 WERROR dcom_get_class_object(struct com_context *ctx, struct GUID *clsid, const char *server, struct GUID *iid, struct IUnknown **ip);
 NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF *obj, struct GUID *iid, struct dcerpc_binding_handle **ph);
-NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp);
+// NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp);
 WERROR dcom_OBJREF_from_IUnknown(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct IUnknown *p);
 WERROR dcom_IUnknown_from_MIP(struct com_context *ctx, struct IUnknown **_p, struct MInterfacePointer *_mi);
 WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, struct OBJREF *o);
 uint64_t dcom_get_current_oxid(void);
 void dcom_add_server_credentials(struct com_context *ctx, const char *server, struct cli_credentials *credentials);
 
-struct composite_context *dcom_get_pipe_send(struct IUnknown *d, TALLOC_CTX *mem_ctx);
-NTSTATUS dcom_get_pipe_recv(struct composite_context *c, struct dcerpc_pipe **pp);
+// struct composite_context *dcom_get_pipe_send(struct IUnknown *d, TALLOC_CTX *mem_ctx);
+// NTSTATUS dcom_get_pipe_recv(struct composite_context *c, struct dcerpc_pipe **pp);
 
 WERROR dcom_query_interface(struct IUnknown *d, uint32_t cRefs, uint16_t cIids, struct GUID *iids, struct IUnknown **ip, WERROR *results);
 uint32_t dcom_release(struct IUnknown *interface, TALLOC_CTX *mem_ctx);
-uint32_t dcom_release_recv(struct composite_context *c);
+// uint32_t dcom_release_recv(struct composite_context *c);
 struct composite_context *dcom_release_send(struct IUnknown *d, TALLOC_CTX *mem_ctx);
 
 struct cli_credentials *dcom_get_server_credentials(struct com_context *ctx, const char *server);
@@ -128,5 +139,7 @@ struct dcom_proxy_async_call_state {
 	void *r;
 };
 
+enum ndr_err_code ndr_push_BSTR(struct ndr_push *ndr, int ndr_flags, const struct BSTR *r);
+enum ndr_err_code ndr_pull_BSTR(struct ndr_pull *ndr, int ndr_flags, struct BSTR *r);
 
 #endif /* _DCOM_H */

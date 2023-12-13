@@ -32,6 +32,7 @@
 #include "../lib/util/dlinklist.h"
 #include "auth/credentials/credentials.h"
 #include "libcli/composite/composite.h"
+#include "librpc/ndr/libndr.h"
 
 #undef strncasecmp
 
@@ -285,6 +286,33 @@ end:
 	return status;
 }
 
+struct dcom_object_handle *object_exporter_get_handle(struct dcom_object_exporter *ox,
+                                                        struct OBJREF* obj, struct GUID* iid)
+{
+    struct dcom_object_handle *handle;
+    for (handle = ox->object_handles; handle; handle = handle->next) {
+        if ((handle->oid = obj->u_objref.u_standard.std.oid) && GUID_equal(&handle->iid, iid)) {
+            return handle;
+        }
+    }
+    return NULL;
+}
+
+struct dcom_object_handle *object_exporter_update_handle(struct com_context *ctx, struct dcom_object_exporter *ox, struct OBJREF* obj, struct GUID* iid, uint32_t context_id)
+{
+	struct dcom_object_handle *handle;
+	handle = object_exporter_get_handle(ox, obj, iid);
+	if (!handle) {
+		handle = talloc_zero(ctx, struct dcom_object_handle);
+		DLIST_ADD(ox->object_handles, handle);
+		handle->oid = obj->u_objref.u_standard.std.oid;
+        handle->iid = *iid;
+        handle->context_id = ++context_id;
+        handle->handle = dcerpc_pipe_binding_handle(ox->pipe, NULL, ndr_table_by_uuid(iid));
+	}
+	return handle;
+}
+
 struct dcom_object_exporter *object_exporter_by_oxid(struct com_context *ctx,
 													 uint64_t oxid)
 {
@@ -295,7 +323,7 @@ struct dcom_object_exporter *object_exporter_by_oxid(struct com_context *ctx,
 		}
 	}
 
-	return NULL; 
+	return NULL;
 }
 
 struct dcom_object_exporter *object_exporter_update_oxid(struct com_context *ctx, uint64_t oxid, struct DUALSTRINGARRAY *bindings)
@@ -635,7 +663,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 		GUID_from_string(COM_IREMUNKNOWN_UUID, &m->rem_unknown->obj.iid);
 		m->rem_unknown->obj.u_objref.u_standard.std.ipid = ipidRemUnknown;
 		m->rem_unknown->vtable = (struct IRemUnknown_vtable *)dcom_proxy_vtable_by_iid(&m->rem_unknown->obj.iid);
-        DEBUG(0, ("rem_unknown vtable %p\n", m->rem_unknown->vtable));
+        DEBUG(0, ("%s:%d rem_unknown vtable %p\n", __FILE__, __LINE__, m->rem_unknown->vtable));
 		/* TODO:avg copy stringbindigs?? */
 	}
     // talloc_report_full(pds->stringbindings, stdout);
@@ -712,7 +740,7 @@ int is_ip_binding(const char* s)
 	return 1;
 }
 
-static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, struct GUID* iid, struct dcerpc_pipe **pp)
+NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct GUID* iid, struct dcerpc_binding_handle **h)
 {
   struct dcerpc_binding *binding;
 	//DCOM_TODO: uint64_t oxid;
@@ -744,28 +772,36 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 	}
 
 	if (p) {
-		if (!GUID_equal(&p->syntax.uuid, iid)) {
-			ox->pipe->syntax.uuid = *iid;
-      DEBUG(0, ("dcom_get_pipe_impl interface will always be present\n"));
-			/* interface will always be present, so
-			 * idl_iface_by_uuid can't return NULL */
-      //memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
-			//*pp = p;
-			//status = dcerpc_pipe_auth(ctx, pp, p->binding, ndr_table_by_uuid(iid), ctx->dcom->credentials->credentials, ctx->lp_ctx);
+        if (!GUID_equal(&p->syntax.uuid, iid)) {
+            //ox->pipe->syntax.uuid = *iid;
+            /* interface will always be present, so
+                * idl_iface_by_uuid can't return NULL */
+            //memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
+            //*pp = p;
+            //status = dcerpc_pipe_auth(ctx, pp, p->binding, ndr_table_by_uuid(iid), ctx->dcom->credentials->credentials, ctx->lp_ctx);
             //ox->rem_unknown->vtable->RemRelease(ox->rem_unknown, ctx, 0, NULL);
             //status = dcerpc_auth3(p, ctx);
-			//status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
+                //status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
             //ox->pipe = *pp;
-           //status = dcerpc_bind_auth_none(p, ndr_table_by_uuid(iid));
-			//status = dcerpc_alter_context(p, ctx, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
+            //status = dcerpc_bind_auth_none(p, ndr_table_by_uuid(iid));
+                //status = dcerpc_alter_context(p, ctx, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
+             //   status = dcerpc_alter_pipe_context(p, ctx, ndr_table_by_uuid(iid));
             // status = NT_STATUS_OK;
             //DEBUG(0, ("auth status %x\n", NT_STATUS_V(status)));
-		    *pp = p;
-		}
-    else {
-			status = NT_STATUS_OK;
-		  *pp = p;
-    }
+            struct dcom_object_handle *oh;
+            oh = object_exporter_update_handle(ctx, ox, obj, iid, p->context_id);
+            if (oh) {
+                DEBUG(0, ("dcom_get_pipe_impl interface will always be present %p\n", oh));
+                *h = oh->handle;
+                status = dcerpc_alter_pipe_context(p, p, iid, oh->context_id);
+            } else {
+                status = NT_STATUS_NO_MEMORY;
+            }
+        }
+        else {
+            status = NT_STATUS_OK;
+            *h = p->binding_handle;
+        }
 		return status;
 	}
 
@@ -809,25 +845,15 @@ static NTSTATUS dcom_get_pipe_impl(struct com_context *ctx, struct OBJREF* obj, 
 
 	//DCOM_TODO: DEBUG(2, ("Successfully connected to OXID %llx\n", (long long)oxid));
 
-	ox->pipe = *pp = p;
+	*h = (ox->pipe = p)->binding_handle;
     DEBUG(0, ("dcom_get_pipe_impl ok\n"));
 	return NT_STATUS_OK;
 }
 
-NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct GUID* iid, struct dcerpc_binding_handle **ph)
-{
-    struct dcerpc_pipe *p = NULL;
-    NTSTATUS status = dcom_get_pipe_impl(ctx, obj, iid, &p);
-    if (NT_STATUS_IS_OK(status)) {
-        *ph = p->binding_handle;
-    }
-    return status;
-}
-
-NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
-{
-    return dcom_get_pipe_impl(iface->ctx, &iface->obj, &iface->vtable->iid, pp);
-}
+// NTSTATUS dcom_get_pipe(struct IUnknown *iface, struct dcerpc_pipe **pp)
+// {
+//     return dcom_get_pipe_impl(iface->ctx, &iface->obj, &iface->vtable->iid, pp);
+// }
 
 WERROR dcom_OBJREF_from_IUnknown(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct IUnknown *p)
 {
@@ -867,6 +893,10 @@ WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, 
 	struct dcom_object_exporter *ox;
 	unmarshal_fn unmarshal;
 
+    if (!_p) {
+        return W_ERROR(NDR_ERR_SUCCESS);
+    }
+
 	switch(o->flags) {
 	case OBJREF_NULL:
 		*_p = NULL;
@@ -904,9 +934,8 @@ WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, 
 		
 	case OBJREF_CUSTOM:
 		p = talloc_zero(ctx, struct IUnknown);
-		p->ctx = ctx;	
-		p->vtable = NULL;
-		p->obj = *o;
+		p->ctx = ctx;
+		p->vtable = dcom_proxy_vtable_by_iid(&o->iid);
 		unmarshal = dcom_unmarshal_by_clsid(&o->u_objref.u_custom.clsid);
 		*_p = p;
 		if (unmarshal) {
@@ -925,28 +954,28 @@ uint64_t dcom_get_current_oxid(void)
 }
 
 /* FIXME:Fake async dcom_get_pipe_* */
-struct composite_context *dcom_get_pipe_send(struct IUnknown *d, TALLOC_CTX *mem_ctx)
-{
-        struct composite_context *c;
+// struct composite_context *dcom_get_pipe_send(struct IUnknown *d, TALLOC_CTX *mem_ctx)
+// {
+//         struct composite_context *c;
 
-        c = composite_create(0, d->ctx->event_ctx);
-        if (c == NULL) return NULL;
-        c->private_data = d;
-        /* composite_done(c); bugged - callback is triggered twice by composite_continue and composite_done */
-        c->state = COMPOSITE_STATE_DONE; /* this is workaround */
+//         c = composite_create(0, d->ctx->event_ctx);
+//         if (c == NULL) return NULL;
+//         c->private_data = d;
+//         /* composite_done(c); bugged - callback is triggered twice by composite_continue and composite_done */
+//         c->state = COMPOSITE_STATE_DONE; /* this is workaround */
 
-        return c;
-}
+//         return c;
+// }
 
-NTSTATUS dcom_get_pipe_recv(struct composite_context *c, struct dcerpc_pipe **pp)
-{
-        NTSTATUS status;
+// NTSTATUS dcom_get_pipe_recv(struct composite_context *c, struct dcerpc_pipe **pp)
+// {
+//         NTSTATUS status;
 
-        status = dcom_get_pipe((struct IUnknown *)c->private_data, pp);
-        talloc_free(c);
+//         status = dcom_get_pipe((struct IUnknown *)c->private_data, pp);
+//         talloc_free(c);
 
-        return status;
-}
+//         return status;
+// }
 
 /* FIXME:avg put IUnknown_Release_out into header */
 struct IUnknown_Release_out {
@@ -992,19 +1021,19 @@ struct composite_context *dcom_release_send(struct IUnknown *d, TALLOC_CTX *mem_
 	return c;
 }
 
-uint32_t dcom_release_recv(struct composite_context *c)
-{
-	NTSTATUS status;
-	WERROR r;
+// uint32_t dcom_release_recv(struct composite_context *c)
+// {
+// 	NTSTATUS status;
+// 	WERROR r;
 
-	status = composite_wait(c);
-	if (!NT_STATUS_IS_OK(status))
-		r = ntstatus_to_werror(status);
-	else
-		W_ERROR_V(r) = ((struct IUnknown_Release_out *)c->private_data)->result;
-	talloc_free(c);
-	return W_ERROR_IS_OK(r) ? 0 : W_ERROR_V(r);
-}
+// 	status = composite_wait(c);
+// 	if (!NT_STATUS_IS_OK(status))
+// 		r = ntstatus_to_werror(status);
+// 	else
+// 		W_ERROR_V(r) = ((struct IUnknown_Release_out *)c->private_data)->result;
+// 	talloc_free(c);
+// 	return W_ERROR_IS_OK(r) ? 0 : W_ERROR_V(r);
+// }
 
 uint32_t dcom_release(struct IUnknown *interface, TALLOC_CTX *mem_ctx)
 {
@@ -1037,4 +1066,45 @@ uint32_t dcom_release(struct IUnknown *interface, TALLOC_CTX *mem_ctx)
 // /*TODO: FIXME - for now this unused anyway */
 //         req = dcerpc_ndr_request_send(p, &s->d->obj.u_objref.u_standard.std.ipid, s->table, s->opnum, s, s->r);
 //         composite_continue_rpc(c, req, s->continuation, c);
+// }
+
+// enum ndr_err_code ndr_push_BSTR(struct ndr_push *ndr, int ndr_flags, const struct BSTR *r)
+// {
+// 	NDR_PUSH_CHECK_FLAGS(ndr, ndr_flags);
+// 	if (ndr_flags & NDR_SCALARS) {
+// 		NDR_CHECK(ndr_push_uint3264(ndr, NDR_SCALARS, ndr_charset_length(r->data, CH_UTF16)));
+// 		NDR_CHECK(ndr_push_align(ndr, 4));
+// 		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0x72657355));
+// 		NDR_CHECK(ndr_push_uint3264(ndr, NDR_SCALARS, 0));
+// 		NDR_CHECK(ndr_push_uint3264(ndr, NDR_SCALARS, ndr_charset_length(r->data, CH_UTF16)));
+// 		NDR_CHECK(ndr_push_charset(ndr, NDR_SCALARS, r->data, ndr_charset_length(r->data, CH_UTF16), sizeof(uint16_t), CH_UTF16));
+// 		NDR_CHECK(ndr_push_trailer_align(ndr, 4));
+// 	}
+// 	if (ndr_flags & NDR_BUFFERS) {
+// 	}
+// 	return NDR_ERR_SUCCESS;
+// }
+
+// enum ndr_err_code ndr_pull_BSTR(struct ndr_pull *ndr, int ndr_flags, struct BSTR *r)
+// {
+// 	uint32_t size_data_0 = 0;
+// 	uint32_t length_data_0 = 0;
+// 	NDR_PULL_CHECK_FLAGS(ndr, ndr_flags);
+// 	if (ndr_flags & NDR_SCALARS) {
+// 		NDR_CHECK(ndr_pull_array_size(ndr, &r->data));
+// 		NDR_CHECK(ndr_pull_align(ndr, 4));
+// 		//NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->flags));
+// 		NDR_CHECK(ndr_pull_array_length(ndr, &r->data));
+// 		NDR_CHECK(ndr_steal_array_size(ndr, (void*)&r->data, &size_data_0));
+// 		NDR_CHECK(ndr_steal_array_length(ndr, (void*)&r->data, &length_data_0));
+// 		if (length_data_0 > size_data_0) {
+// 			return ndr_pull_error(ndr, NDR_ERR_ARRAY_SIZE, "Bad array size %u should exceed array length %u", size_data_0, length_data_0);
+// 		}
+// 		NDR_CHECK(ndr_check_string_terminator(ndr, length_data_0, sizeof(uint16_t)));
+// 		NDR_CHECK(ndr_pull_charset(ndr, NDR_SCALARS, &r->data, length_data_0, sizeof(uint16_t), CH_UTF16));
+// 		NDR_CHECK(ndr_pull_trailer_align(ndr, 4));
+// 	}
+// 	if (ndr_flags & NDR_BUFFERS) {
+// 	}
+// 	return NDR_ERR_SUCCESS;
 // }
