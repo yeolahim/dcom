@@ -159,6 +159,25 @@ void dump_hex(const char* name, uint32_t size, const uint8_t* data) {
     printf("\n");
 }
 
+void swap_off(uint32_t* l, uint32_t* r);
+void swap_off(uint32_t* l, uint32_t* r) {
+	uint32_t v = *l;
+	*l = *r;
+	*r = v;
+}
+
+#ifdef NDR_CHECK
+#undef NDR_CHECK
+#endif
+#define NDR_CHECK(call) do { \
+	enum ndr_err_code _status; \
+	_status = call; \
+	if (unlikely(!NDR_ERR_CODE_IS_SUCCESS(_status))) {	\
+		printf("error '%d' at %s:%d\n", _status, __FILE__, __LINE__);\
+		return _status; \
+	} \
+} while (0)
+
 static enum ndr_err_code marshal(TALLOC_CTX *mem_ctx, struct IUnknown *pv, struct OBJREF *o)
 {
 	struct ndr_push *ndr;
@@ -221,20 +240,20 @@ static enum ndr_err_code unmarshal(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct
 	}
 	wco = talloc_zero(*pv, struct WbemClassObject);
 	ndr->current_mem_ctx = wco;
-    // ndr_err = ndr_pull_OBJREF(ndr, NDR_SCALARS | NDR_BUFFERS, &oref);
-    // dcom_IUnknown_from_OBJREF(mem_ctx, pv, & oref);
-    ndr_err = ndr_pull_WbemClassObject(ndr, NDR_SCALARS | NDR_BUFFERS, wco);
+		// ndr_err = ndr_pull_OBJREF(ndr, NDR_SCALARS | NDR_BUFFERS, &oref);
+		// dcom_IUnknown_from_OBJREF(mem_ctx, pv, & oref);
+	ndr_err = ndr_pull_WbemClassObject(ndr, NDR_SCALARS | NDR_BUFFERS, wco);
 
 	if (NDR_ERR_CODE_IS_SUCCESS(ndr_err) && (DEBUGLVL(9))) {
 		NDR_PRINT_DEBUG(WbemClassObject, wco);
 	}
 
-    if (NDR_ERR_CODE_IS_SUCCESS(ndr_err)) {
-	    (*pv)->object_data = wco;
+	if (NDR_ERR_CODE_IS_SUCCESS(ndr_err)) {
+		(*pv)->object_data = wco;
 	} else {
 		talloc_free(wco);
 	}
-	return NDR_ERR_SUCCESS;
+	return ndr_err;
 }
 
 static struct GUID IWbemClassObject_IID = {
@@ -1568,6 +1587,582 @@ enum ndr_err_code ndr_push_CIMVAR(struct ndr_push *ndr, int ndr_flags, const uni
 	}
 	return NDR_ERR_SUCCESS;
 }
+enum ndr_err_code ndr_pull_CIMVAR2(struct ndr_pull *ndr, struct ndr_pull *heap, enum CIMTYPE_ENUMERATION cimtype, union CIMVAR *r);
+enum ndr_err_code ndr_pull_CIMVAR2(struct ndr_pull *ndr, struct ndr_pull *heap, enum CIMTYPE_ENUMERATION cimtype, union CIMVAR *r)
+{
+	// uint32_t level;
+	// //TALLOC_CTX *_mem_save_v_string_0;
+	// //TALLOC_CTX *_mem_save_v_datetime_0;
+	// //TALLOC_CTX *_mem_save_v_reference_0;
+	// TALLOC_CTX *_mem_save_v_object_0;
+	// TALLOC_CTX *_mem_save_a_sint8_0;
+	// TALLOC_CTX *_mem_save_a_uint8_0;
+	// TALLOC_CTX *_mem_save_a_sint16_0;
+	// TALLOC_CTX *_mem_save_a_uint16_0;
+	// TALLOC_CTX *_mem_save_a_sint32_0;
+	// TALLOC_CTX *_mem_save_a_uint32_0;
+	// TALLOC_CTX *_mem_save_a_sint64_0;
+	// TALLOC_CTX *_mem_save_a_uint64_0;
+	// TALLOC_CTX *_mem_save_a_real32_0;
+	// TALLOC_CTX *_mem_save_a_real64_0;
+	// TALLOC_CTX *_mem_save_a_boolean_0;
+	// TALLOC_CTX *_mem_save_a_string_0;
+	// TALLOC_CTX *_mem_save_a_datetime_0;
+	// TALLOC_CTX *_mem_save_a_reference_0;
+	// TALLOC_CTX *_mem_save_a_object_0;
+  // NDR_CHECK(ndr_token_peek(&ndr->switch_list, r, &level));
+	// if (ndr_flags & NDR_SCALARS) {
+	switch (cimtype) {
+		case CIM_SINT8: {
+			NDR_CHECK(ndr_pull_int8(ndr, NDR_SCALARS, &r->v_sint8));
+		break; }
+
+		case CIM_UINT8: {
+			NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->v_uint8));
+		break; }
+
+		case CIM_SINT16: {
+			NDR_CHECK(ndr_pull_int16(ndr, NDR_SCALARS, &r->v_sint16));
+		break; }
+
+		case CIM_UINT16: {
+			NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->v_uint16));
+		break; }
+
+		case CIM_SINT32: {
+			NDR_CHECK(ndr_pull_int32(ndr, NDR_SCALARS, &r->v_sint32));
+		break; }
+
+		case CIM_UINT32: {
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->v_uint32));
+		break; }
+
+		case CIM_SINT64: {
+			NDR_CHECK(ndr_pull_dlong(ndr, NDR_SCALARS, &r->v_sint64));
+		break; }
+
+		case CIM_UINT64: {
+			NDR_CHECK(ndr_pull_udlong(ndr, NDR_SCALARS, &r->v_uint64));
+		break; }
+
+		case CIM_REAL32: {
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->v_real32));
+		break; }
+
+		case CIM_REAL64: {
+			NDR_CHECK(ndr_pull_udlong(ndr, NDR_SCALARS, &r->v_real64));
+		break; }
+
+		case CIM_BOOLEAN: {
+			NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->v_boolean));
+		break; }
+
+		case CIM_STRING: {
+			uint32_t _ptr_v_string;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_v_string));
+			if (_ptr_v_string) {
+				swap_off(&heap->offset, &_ptr_v_string);
+				NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->v_string));
+				swap_off(&heap->offset, &_ptr_v_string);
+			} else {
+				r->v_string = NULL;
+			}
+		break; }
+
+		case CIM_DATETIME: {
+			uint32_t _ptr_v_datetime;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_v_datetime));
+			if (_ptr_v_datetime) {
+				swap_off(&heap->offset, &_ptr_v_datetime);
+				NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->v_datetime));
+				swap_off(&heap->offset, &_ptr_v_datetime);
+			} else {
+				r->v_datetime = NULL;
+			}
+		break; }
+
+		case CIM_REFERENCE: {
+			uint32_t _ptr_v_reference;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_v_reference));
+			if (_ptr_v_reference) {
+				swap_off(&heap->offset, &_ptr_v_reference);
+				NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->v_reference));
+				swap_off(&heap->offset, &_ptr_v_reference);
+			} else {
+				r->v_reference = NULL;
+			}
+		break; }
+
+		// case CIM_OBJECT: {
+		// 	uint32_t _ptr_v_object;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_v_object));
+		// 	if (_ptr_v_object) {
+		// 		NDR_PULL_ALLOC(ndr, r->v_object);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->v_object, _ptr_v_object));
+		// 	} else {
+		// 		r->v_object = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_SINT8: {
+		// 	uint32_t _ptr_a_sint8;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_sint8));
+		// 	if (_ptr_a_sint8) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_sint8);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_sint8, _ptr_a_sint8));
+		// 	} else {
+		// 		r->a_sint8 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_UINT8: {
+		// 	uint32_t _ptr_a_uint8;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_uint8));
+		// 	if (_ptr_a_uint8) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_uint8);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_uint8, _ptr_a_uint8));
+		// 	} else {
+		// 		r->a_uint8 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_SINT16: {
+		// 	uint32_t _ptr_a_sint16;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_sint16));
+		// 	if (_ptr_a_sint16) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_sint16);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_sint16, _ptr_a_sint16));
+		// 	} else {
+		// 		r->a_sint16 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_UINT16: {
+		// 	uint32_t _ptr_a_uint16;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_uint16));
+		// 	if (_ptr_a_uint16) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_uint16);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_uint16, _ptr_a_uint16));
+		// 	} else {
+		// 		r->a_uint16 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_SINT32: {
+		// 	uint32_t _ptr_a_sint32;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_sint32));
+		// 	if (_ptr_a_sint32) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_sint32);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_sint32, _ptr_a_sint32));
+		// 	} else {
+		// 		r->a_sint32 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_UINT32: {
+		// 	uint32_t _ptr_a_uint32;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_uint32));
+		// 	if (_ptr_a_uint32) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_uint32);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_uint32, _ptr_a_uint32));
+		// 	} else {
+		// 		r->a_uint32 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_SINT64: {
+		// 	uint32_t _ptr_a_sint64;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_sint64));
+		// 	if (_ptr_a_sint64) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_sint64);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_sint64, _ptr_a_sint64));
+		// 	} else {
+		// 		r->a_sint64 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_UINT64: {
+		// 	uint32_t _ptr_a_uint64;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_uint64));
+		// 	if (_ptr_a_uint64) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_uint64);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_uint64, _ptr_a_uint64));
+		// 	} else {
+		// 		r->a_uint64 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_REAL32: {
+		// 	uint32_t _ptr_a_real32;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_real32));
+		// 	if (_ptr_a_real32) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_real32);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_real32, _ptr_a_real32));
+		// 	} else {
+		// 		r->a_real32 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_REAL64: {
+		// 	uint32_t _ptr_a_real64;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_real64));
+		// 	if (_ptr_a_real64) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_real64);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_real64, _ptr_a_real64));
+		// 	} else {
+		// 		r->a_real64 = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_BOOLEAN: {
+		// 	uint32_t _ptr_a_boolean;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_boolean));
+		// 	if (_ptr_a_boolean) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_boolean);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_boolean, _ptr_a_boolean));
+		// 	} else {
+		// 		r->a_boolean = NULL;
+		// 	}
+		// break; }
+
+		case CIM_ARR_STRING: {
+			uint32_t _ptr_a_string;
+			NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_string));
+			if (_ptr_a_string) {
+				NDR_PULL_ALLOC(ndr, r->a_string);
+				NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_string, _ptr_a_string));
+			} else {
+				r->a_string = NULL;
+			}
+		break; }
+
+		// case CIM_ARR_DATETIME: {
+		// 	uint32_t _ptr_a_datetime;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_datetime));
+		// 	if (_ptr_a_datetime) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_datetime);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_datetime, _ptr_a_datetime));
+		// 	} else {
+		// 		r->a_datetime = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_REFERENCE: {
+		// 	uint32_t _ptr_a_reference;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_reference));
+		// 	if (_ptr_a_reference) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_reference);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_reference, _ptr_a_reference));
+		// 	} else {
+		// 		r->a_reference = NULL;
+		// 	}
+		// break; }
+
+		// case CIM_ARR_OBJECT: {
+		// 	uint32_t _ptr_a_object;
+		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_object));
+		// 	if (_ptr_a_object) {
+		// 		NDR_PULL_ALLOC(ndr, r->a_object);
+		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_object, _ptr_a_object));
+		// 	} else {
+		// 		r->a_object = NULL;
+		// 	}
+		// break; }
+
+		default:
+			printf("Bad switch value %u\n", cimtype);
+			return ndr_pull_error(ndr, NDR_ERR_BAD_SWITCH, "Bad switch value %u", cimtype);
+	}
+	// }
+	// if (ndr_flags & NDR_BUFFERS) {
+	// 	switch (level) {
+	// 		case CIM_SINT8: {
+	// 		break; }
+
+	// 		case CIM_UINT8: {
+	// 		break; }
+
+	// 		case CIM_SINT16: {
+	// 		break; }
+
+	// 		case CIM_UINT16: {
+	// 		break; }
+
+	// 		case CIM_SINT32: {
+	// 		break; }
+
+	// 		case CIM_UINT32: {
+	// 		break; }
+
+	// 		case CIM_SINT64: {
+	// 		break; }
+
+	// 		case CIM_UINT64: {
+	// 		break; }
+
+	// 		case CIM_REAL32: {
+	// 		break; }
+
+	// 		case CIM_REAL64: {
+	// 		break; }
+
+	// 		case CIM_BOOLEAN: {
+	// 		break; }
+
+	// 		case CIM_STRING: {
+	// 			if (r->v_string) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->v_string));
+	// 				NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->v_string));
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_DATETIME: {
+	// 			if (r->v_datetime) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->v_datetime));
+	// 				NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->v_datetime));
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_REFERENCE: {
+	// 			if (r->v_reference) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->v_reference));
+	// 				NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->v_reference));
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_OBJECT: {
+	// 			if (r->v_object) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->v_object));
+	// 				_mem_save_v_object_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->v_object, 0);
+	// 				{
+	// 					struct ndr_pull *_ndr_v_object;
+	// 					NDR_CHECK(ndr_pull_subcontext_start(ndr, &_ndr_v_object, 4, -1));
+	// 					if (_ndr_v_object->data_size) {
+	// 						NDR_CHECK(ndr_pull_WbemClassObject(_ndr_v_object, NDR_SCALARS|NDR_BUFFERS, r->v_object));
+	// 					} else {
+	// 						talloc_free(r->v_object);
+	// 						r->v_object = NULL;
+	// 					}
+	// 					NDR_CHECK(ndr_pull_subcontext_end(ndr, _ndr_v_object, 4, -1));
+	// 				}
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_v_object_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_SINT8: {
+	// 			if (r->a_sint8) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_sint8));
+	// 				_mem_save_a_sint8_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_sint8, 0);
+	// 				NDR_CHECK(ndr_pull_arr_int8(ndr, NDR_SCALARS, r->a_sint8));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_sint8_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_UINT8: {
+	// 			if (r->a_uint8) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_uint8));
+	// 				_mem_save_a_uint8_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_uint8, 0);
+	// 				NDR_CHECK(ndr_pull_arr_uint8(ndr, NDR_SCALARS, r->a_uint8));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_uint8_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_SINT16: {
+	// 			if (r->a_sint16) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_sint16));
+	// 				_mem_save_a_sint16_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_sint16, 0);
+	// 				NDR_CHECK(ndr_pull_arr_int16(ndr, NDR_SCALARS, r->a_sint16));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_sint16_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_UINT16: {
+	// 			if (r->a_uint16) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_uint16));
+	// 				_mem_save_a_uint16_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_uint16, 0);
+	// 				NDR_CHECK(ndr_pull_arr_uint16(ndr, NDR_SCALARS, r->a_uint16));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_uint16_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_SINT32: {
+	// 			if (r->a_sint32) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_sint32));
+	// 				_mem_save_a_sint32_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_sint32, 0);
+	// 				NDR_CHECK(ndr_pull_arr_int32(ndr, NDR_SCALARS, r->a_sint32));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_sint32_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_UINT32: {
+	// 			if (r->a_uint32) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_uint32));
+	// 				_mem_save_a_uint32_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_uint32, 0);
+	// 				NDR_CHECK(ndr_pull_arr_uint32(ndr, NDR_SCALARS, r->a_uint32));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_uint32_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_SINT64: {
+	// 			if (r->a_sint64) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_sint64));
+	// 				_mem_save_a_sint64_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_sint64, 0);
+	// 				NDR_CHECK(ndr_pull_arr_dlong(ndr, NDR_SCALARS, r->a_sint64));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_sint64_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_UINT64: {
+	// 			if (r->a_uint64) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_uint64));
+	// 				_mem_save_a_uint64_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_uint64, 0);
+	// 				NDR_CHECK(ndr_pull_arr_udlong(ndr, NDR_SCALARS, r->a_uint64));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_uint64_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_REAL32: {
+	// 			if (r->a_real32) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_real32));
+	// 				_mem_save_a_real32_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_real32, 0);
+	// 				NDR_CHECK(ndr_pull_arr_uint32(ndr, NDR_SCALARS, r->a_real32));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_real32_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_REAL64: {
+	// 			if (r->a_real64) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_real64));
+	// 				_mem_save_a_real64_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_real64, 0);
+	// 				NDR_CHECK(ndr_pull_arr_udlong(ndr, NDR_SCALARS, r->a_real64));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_real64_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_BOOLEAN: {
+	// 			if (r->a_boolean) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_boolean));
+	// 				_mem_save_a_boolean_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_boolean, 0);
+	// 				NDR_CHECK(ndr_pull_arr_uint16(ndr, NDR_SCALARS, r->a_boolean));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_boolean_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_STRING: {
+	// 			if (r->a_string) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_string));
+	// 				_mem_save_a_string_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_string, 0);
+	// 				NDR_CHECK(ndr_pull_arr_CIMSTRING(ndr, NDR_SCALARS|NDR_BUFFERS, r->a_string));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_string_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_DATETIME: {
+	// 			if (r->a_datetime) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_datetime));
+	// 				_mem_save_a_datetime_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_datetime, 0);
+	// 				NDR_CHECK(ndr_pull_arr_CIMSTRING(ndr, NDR_SCALARS|NDR_BUFFERS, r->a_datetime));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_datetime_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_REFERENCE: {
+	// 			if (r->a_reference) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_reference));
+	// 				_mem_save_a_reference_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_reference, 0);
+	// 				NDR_CHECK(ndr_pull_arr_CIMSTRING(ndr, NDR_SCALARS|NDR_BUFFERS, r->a_reference));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_reference_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		case CIM_ARR_OBJECT: {
+	// 			if (r->a_object) {
+	// 				struct ndr_pull_save _relative_save;
+	// 				ndr_pull_save(ndr, &_relative_save);
+	// 				NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->a_object));
+	// 				_mem_save_a_object_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 				NDR_PULL_SET_MEM_CTX(ndr, r->a_object, 0);
+	// 				NDR_CHECK(ndr_pull_arr_WbemClassObject(ndr, NDR_SCALARS|NDR_BUFFERS, r->a_object));
+	// 				NDR_PULL_SET_MEM_CTX(ndr, _mem_save_a_object_0, 0);
+	// 				ndr_pull_restore(ndr, &_relative_save);
+	// 			}
+	// 		break; }
+
+	// 		default:
+	// 			return ndr_pull_error(ndr, NDR_ERR_BAD_SWITCH, "Bad switch value %u", level);
+	// 	}
+	// }
+	return NDR_ERR_SUCCESS;
+}
 
 enum ndr_err_code ndr_pull_CIMVAR(struct ndr_pull *ndr, int ndr_flags, union CIMVAR *r)
 {
@@ -2517,39 +3112,39 @@ static const char *qn_unknown = "Unknown_qualifier_name";
 
 enum ndr_err_code ndr_push_WbemQualifier(struct ndr_push *ndr, int ndr_flags, const struct WbemQualifier *r)
 {
-        if (ndr_flags & NDR_SCALARS) {
-                NDR_CHECK(ndr_push_align(ndr, 4));
-                NDR_CHECK(ndr_push_relative_ptr1(ndr, r->name));
-                NDR_CHECK(ndr_push_WBEM_FLAVOR_TYPE(ndr, NDR_SCALARS, r->flavors));
-                NDR_CHECK(ndr_push_CIMTYPE_ENUMERATION(ndr, NDR_SCALARS, r->cimtype));
-                NDR_CHECK(ndr_push_set_switch_value(ndr, &r->value, r->cimtype & CIM_TYPEMASK));
-                NDR_CHECK(ndr_push_CIMVAR(ndr, NDR_SCALARS, &r->value));
-        }
-        if (ndr_flags & NDR_BUFFERS) {
-            if (r->name) {
-            uint32_t ofs;
-            int32_t i;
-            for (i = 0; i < arr_sizeof(qualifier_keys); ++i)
-                if (qualifier_keys[i] && !strcmp(r->name, qualifier_keys[i])) break;
-                if (i == arr_sizeof(qualifier_keys)) {
-                    if (!strncmp(qn_unknown, r->name, sizeof(qn_unknown) - 1))
-                        i = atoi(r->name + sizeof(qn_unknown) - 1);
-                    else
-                        i = -1;
-                }
-                if (i >= 0) {
-                    ofs = ndr->offset;
-                    NDR_CHECK(ndr_token_retrieve(&ndr->relative_list, r->name, &ndr->offset));
-                    NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0x80000000 | i));
-                    ndr->offset = ofs;
-                } else {
-                    NDR_CHECK(ndr_push_relative_ptr2(ndr, r->name));
-                    NDR_CHECK(ndr_push_CIMSTRING(ndr, NDR_SCALARS, &r->name));
-                }
-            }
-            NDR_CHECK(ndr_push_CIMVAR(ndr, NDR_BUFFERS, &r->value));
-        }
-        return NDR_ERR_SUCCESS;
+	if (ndr_flags & NDR_SCALARS) {
+		NDR_CHECK(ndr_push_align(ndr, 4));
+		NDR_CHECK(ndr_push_relative_ptr1(ndr, r->name));
+		NDR_CHECK(ndr_push_WBEM_FLAVOR_TYPE(ndr, NDR_SCALARS, r->flavors));
+		NDR_CHECK(ndr_push_CIMTYPE_ENUMERATION(ndr, NDR_SCALARS, r->cimtype));
+		NDR_CHECK(ndr_push_set_switch_value(ndr, &r->value, r->cimtype & CIM_TYPEMASK));
+		NDR_CHECK(ndr_push_CIMVAR(ndr, NDR_SCALARS, &r->value));
+	}
+	if (ndr_flags & NDR_BUFFERS) {
+		if (r->name) {
+			uint32_t ofs;
+			int32_t i;
+			for (i = 0; i < arr_sizeof(qualifier_keys); ++i)
+				if (qualifier_keys[i] && !strcmp(r->name, qualifier_keys[i])) break;
+			if (i == arr_sizeof(qualifier_keys)) {
+				if (!strncmp(qn_unknown, r->name, sizeof(qn_unknown) - 1))
+						i = atoi(r->name + sizeof(qn_unknown) - 1);
+				else
+						i = -1;
+			}
+			if (i >= 0) {
+				ofs = ndr->offset;
+				NDR_CHECK(ndr_token_retrieve(&ndr->relative_list, r->name, &ndr->offset));
+				NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0x80000000 | i));
+				ndr->offset = ofs;
+			} else {
+				NDR_CHECK(ndr_push_relative_ptr2(ndr, r->name));
+				NDR_CHECK(ndr_push_CIMSTRING(ndr, NDR_SCALARS, &r->name));
+			}
+		}
+		NDR_CHECK(ndr_push_CIMVAR(ndr, NDR_BUFFERS, &r->value));
+	}
+	return NDR_ERR_SUCCESS;
 }
 
 enum ndr_err_code ndr_pull_WbemQualifier(struct ndr_pull *ndr, int ndr_flags, struct WbemQualifier *r)
@@ -2598,44 +3193,28 @@ enum ndr_err_code ndr_pull_WbemQualifier(struct ndr_pull *ndr, int ndr_flags, st
 enum ndr_err_code ndr_pull_WbemQualifier2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemQualifier *r);
 enum ndr_err_code ndr_pull_WbemQualifier2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemQualifier *r)
 {
-    uint32_t _ptr_name;
-    uint32_t relofs;
-    TALLOC_CTX *_mem_save_name_0;
-    //if (ndr_flags & NDR_SCALARS) {
-        NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_name));
-        if (_ptr_name != 0xFFFFFFFF) {
-            NDR_PULL_ALLOC(ndr, r->name);
-            NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->name, _ptr_name));
-        } else {
-            r->name = NULL;
-        }
-        NDR_CHECK(ndr_pull_WBEM_FLAVOR_TYPE(ndr, NDR_SCALARS, &r->flavors));
-        NDR_CHECK(ndr_pull_CIMTYPE_ENUMERATION(ndr, NDR_SCALARS, &r->cimtype));
-        NDR_CHECK(ndr_pull_set_switch_value(ndr, &r->value, r->cimtype & CIM_TYPEMASK));
-        NDR_CHECK(ndr_pull_CIMVAR(ndr, NDR_SCALARS, &r->value));
-    //}
-    //if (ndr_flags & NDR_BUFFERS) {
-        NDR_CHECK(ndr_token_peek(&ndr->relative_list, r->name, &relofs));
-        if (relofs & 0x80000000) {
-            relofs &= 0xFF;
-            if ((relofs < sizeof(qualifier_keys)/sizeof(qualifier_keys[0])) && qualifier_keys[relofs]) {
-                r->name = talloc_strdup(ndr->current_mem_ctx, qualifier_keys[relofs]);
-            } else {
-                r->name = talloc_asprintf(ndr->current_mem_ctx, "%s%d", qn_unknown, relofs);
-            }
-        } else if (r->name) {
-            struct ndr_pull_save _relative_save;
-            ndr_pull_save(ndr, &_relative_save);
-            NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->name));
-            _mem_save_name_0 = NDR_PULL_GET_MEM_CTX(ndr);
-            NDR_PULL_SET_MEM_CTX(ndr, r->name, 0);
-            NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->name));
-            NDR_PULL_SET_MEM_CTX(ndr, _mem_save_name_0, 0);
-            ndr_pull_restore(ndr, &_relative_save);
-        }
-        NDR_CHECK(ndr_pull_CIMVAR(ndr, NDR_BUFFERS, &r->value));
-    //}
-    return NDR_ERR_SUCCESS;
+	uint32_t _ptr_name;
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_name));
+	if (_ptr_name != 0xFFFFFFFF) {
+		if (_ptr_name & 0x80000000) {
+			_ptr_name &= 0xFF;
+			if ((_ptr_name < sizeof(qualifier_keys)/sizeof(qualifier_keys[0])) && qualifier_keys[_ptr_name]) {
+					r->name = talloc_strdup(ndr->current_mem_ctx, qualifier_keys[_ptr_name]);
+			} else {
+					r->name = talloc_asprintf(ndr->current_mem_ctx, "%s%d", qn_unknown, _ptr_name);
+			}
+		} else {
+			swap_off(&heap->offset, &_ptr_name);
+      NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->name));
+			swap_off(&heap->offset, &_ptr_name);
+		}
+	} else {
+			r->name = NULL;
+	}
+	NDR_CHECK(ndr_pull_WBEM_FLAVOR_TYPE(ndr, NDR_SCALARS, &r->flavors));
+	NDR_CHECK(ndr_pull_CIMTYPE_ENUMERATION(ndr, NDR_SCALARS, &r->cimtype));
+	NDR_CHECK(ndr_pull_CIMVAR2(ndr, heap, r->cimtype & CIM_TYPEMASK, &r->value));
+	return NDR_ERR_SUCCESS;
 }
 
 void ndr_print_WbemQualifier(struct ndr_print *ndr, const char *name, const struct WbemQualifier *r)
@@ -2750,27 +3329,27 @@ enum ndr_err_code ndr_pull_WbemQualifiers2(struct ndr_pull *ndr, struct ndr_pull
 
 	mem_ctx = ndr->current_mem_ctx;
 
-    NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &endofs));
-    endofs += ndr->offset - sizeof(endofs);
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &endofs));
+	endofs += ndr->offset - sizeof(endofs);
 
-    r->count = 0;
-    len = 10;
-    r->item = talloc_array(mem_ctx, struct WbemQualifier*, len);
-    ndr->current_mem_ctx = r->item;
-    while (ndr->offset < endofs) {
-        if (r->count >= len) {
-            len += 3;
-            r->item = talloc_realloc(mem_ctx, r->item, struct WbemQualifier*, len);
-            /* update the memory context with the realloc'ed ptr */
-            ndr->current_mem_ctx = r->item;
-        }
-        NDR_PULL_ALLOC(ndr, r->item[r->count]);
-        NDR_CHECK(ndr_pull_WbemQualifier2(ndr, heap, r->item[r->count]));
-        ++r->count;
-    }
-    r->item = talloc_realloc(mem_ctx, r->item, struct WbemQualifier*, r->count);
-    ndr->current_mem_ctx = mem_ctx;
-    return NDR_ERR_SUCCESS;
+	r->count = 0;
+	len = 10;
+	r->item = talloc_array(mem_ctx, struct WbemQualifier*, len);
+	ndr->current_mem_ctx = r->item;
+	while (ndr->offset < endofs) {
+		if (r->count >= len) {
+			len += 3;
+			r->item = talloc_realloc(mem_ctx, r->item, struct WbemQualifier*, len);
+			/* update the memory context with the realloc'ed ptr */
+			ndr->current_mem_ctx = r->item;
+		}
+		NDR_PULL_ALLOC(ndr, r->item[r->count]);
+		NDR_CHECK(ndr_pull_WbemQualifier2(ndr, heap, r->item[r->count]));
+		++r->count;
+	}
+	r->item = talloc_realloc(mem_ctx, r->item, struct WbemQualifier*, r->count);
+	ndr->current_mem_ctx = mem_ctx;
+	return NDR_ERR_SUCCESS;
 }
 enum ndr_err_code ndr_push_DataWithStack(struct ndr_push *ndr, ndr_push_flags_fn_t fn, const void *r)
 {
@@ -2845,6 +3424,18 @@ enum ndr_err_code ndr_push_WbemPropertyDesc(struct ndr_push *ndr, int ndr_flags,
 	return NDR_ERR_SUCCESS;
 }
 
+enum ndr_err_code ndr_pull_WbemPropertyDesc2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemPropertyDesc *r);
+enum ndr_err_code ndr_pull_WbemPropertyDesc2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemPropertyDesc *r)
+{
+	NDR_CHECK(ndr_pull_align(ndr, 4));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->cimtype));
+	NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->nr));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->offset));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->depth));
+	NDR_CHECK(ndr_pull_WbemQualifiers2(ndr, heap, &r->qualifiers));
+	return NDR_ERR_SUCCESS;
+}
+
 enum ndr_err_code ndr_pull_WbemPropertyDesc(struct ndr_pull *ndr, int ndr_flags, struct WbemPropertyDesc *r)
 {
 	if (ndr_flags & NDR_SCALARS) {
@@ -2889,6 +3480,36 @@ enum ndr_err_code ndr_push_WbemProperty(struct ndr_push *ndr, int ndr_flags, con
 			NDR_CHECK(ndr_push_relative_ptr2(ndr, r->desc));
 			NDR_CHECK(ndr_push_WbemPropertyDesc(ndr, NDR_SCALARS|NDR_BUFFERS, r->desc));
 		}
+	}
+	return NDR_ERR_SUCCESS;
+}
+
+enum ndr_err_code ndr_pull_WbemProperty2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemProperty *r);
+enum ndr_err_code ndr_pull_WbemProperty2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemProperty *r)
+{
+	uint32_t _ptr_name;
+	uint32_t _ptr_desc;
+	TALLOC_CTX *_mem_save_desc_0;
+
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_name));
+	if (_ptr_name) {
+		swap_off(&heap->offset, &_ptr_name);
+		NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->name));
+		swap_off(&heap->offset, &_ptr_name);
+	} else {
+		r->name = NULL;
+	}
+
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_desc));
+	if (_ptr_desc) {
+		NDR_PULL_ALLOC(ndr, r->desc);
+		_mem_save_desc_0 = heap->current_mem_ctx;
+		swap_off(&heap->offset, &_ptr_desc);
+		NDR_CHECK(ndr_pull_WbemPropertyDesc2(heap, heap, r->desc));
+		swap_off(&heap->offset, &_ptr_desc);
+		heap->current_mem_ctx = _mem_save_desc_0;
+	} else {
+		r->desc = NULL;
 	}
 	return NDR_ERR_SUCCESS;
 }
@@ -3022,41 +3643,64 @@ enum ndr_err_code ndr_push_WbemClass(struct ndr_push *ndr, int ndr_flags, const 
 
 enum ndr_err_code ndr_pull_WbemClass(struct ndr_pull *ndr, struct WbemClass *r)
 {
-    uint32_t endofs = 0; // methods
-    uint32_t classNameRef = 0;
-    uint32_t qualifiersSize = 0;
-    struct ndr_pull heap = *ndr;
+		uint32_t endofs = 0; // to methods
+		uint32_t classNameRef = 0;
+		uint32_t qualifiersSize = 0;
+    TALLOC_CTX *prev_ctx;
+		struct ndr_pull* heap = NULL;
+		NDR_PULL_SET_MEM_CTX(ndr, r, 0);
 
-    NDR_PULL_SET_MEM_CTX(ndr, r, 0);
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &endofs));
+		endofs += ndr->offset - sizeof(endofs);
+		NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->u_0)); // ReservedOctet
+		///
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &classNameRef));
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->data_size)); // NdTableValueTableLength in octets
+		NDR_CHECK(ndr_pull_CIMSTRINGS(ndr, NDR_SCALARS, &r->__DERIVATION));
 
-    NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &endofs));
-    endofs += ndr->offset - sizeof(endofs);
-    NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->u_0)); // ReservedOctet
+		heap = talloc_zero(ndr->current_mem_ctx, struct ndr_pull);
+		ndr->current_mem_ctx = ndr->current_mem_ctx;
+		heap->data_size = ndr->data_size - ndr->offset;
+		heap->data = ndr->data + ndr->offset;
+		heap->offset = 0;
+		ndr_set_flags(&heap->flags, ndr->flags);
+		NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &qualifiersSize));
+		heap->offset += qualifiersSize - sizeof(uint32_t);
+		NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &r->__PROPERTY_COUNT));
+		heap->offset += (r->__PROPERTY_COUNT * 2 * sizeof(uint32_t)) + r->data_size;
+		NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &heap->data_size));
+		heap->data_size &= 0x7fffffff;
+		heap->data += heap->offset;
+		if (classNameRef != 0xFFFFFFFF) {
+				swap_off(&heap->offset, &classNameRef);
+				NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->__CLASS));
+				swap_off(&heap->offset, &classNameRef);
+		} else {
+				r->__CLASS = NULL;
+		}
     ///
-    NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &classNameRef));
-    NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->data_size)); // NdTableValueTableLength in octets
-    NDR_CHECK(ndr_pull_CIMSTRINGS(ndr, NDR_SCALARS, &r->__DERIVATION));
-
-    heap.data = ndr->data + ndr->offset;
-    heap.offset = 0;
-    NDR_CHECK(ndr_pull_uint32(&heap, NDR_SCALARS, &qualifiersSize));
-    heap.offset += qualifiersSize - sizeof(uint32_t);
-    NDR_CHECK(ndr_pull_uint32(&heap, NDR_SCALARS, &r->__PROPERTY_COUNT));
-    heap.offset += (r->__PROPERTY_COUNT * 2 * sizeof(uint32_t)) + r->data_size;
-    NDR_CHECK(ndr_pull_uint32(&heap, NDR_SCALARS, &heap.data_size));
-    heap.data_size &= 0x7fffffff;
-    heap.data += heap.offset;
-    if (classNameRef != 0xFFFFFFFF) {
-        heap.offset = classNameRef;
-        NDR_CHECK(ndr_pull_CIMSTRING(&heap, NDR_SCALARS, &r->__CLASS));
-    } else {
-        r->__CLASS = NULL;
-    }
+    NDR_CHECK(ndr_pull_WbemQualifiers2(ndr, heap, &r->qualifiers));
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->__PROPERTY_COUNT));
+		NDR_PULL_ALLOC_N(ndr, r->properties, r->__PROPERTY_COUNT);
+		prev_ctx = NDR_PULL_GET_MEM_CTX(ndr);
+		NDR_PULL_SET_MEM_CTX(ndr, r->properties, 0);
+		for (uint32_t i = 0; i < r->__PROPERTY_COUNT; ++i) {
+				NDR_CHECK(ndr_pull_WbemProperty2(ndr, heap, &(r->properties)[i]));
+		}
+		NDR_PULL_SET_MEM_CTX(ndr, prev_ctx, 0);
     ///
-    NDR_CHECK(ndr_pull_WbemQualifiers2(ndr, &heap, &r->qualifiers));
-    ///
+		printf("class '%s'\n", r->__CLASS);
+		printf("\tderived:\n");
+		for (uint32_t i = 0; i < r->__DERIVATION.count; ++i) {
+			printf("\t\t'%s'\n", r->__DERIVATION.item[i]);
+		}
+		printf("\tqualifiers:\n");
+		for (uint32_t i = 0; i < r->qualifiers.count; ++i) {
+			printf("\t\t'%s'\n", r->qualifiers.item[i]->name);
+		}
+		///
     ndr->offset = endofs;
-    return NDR_ERR_SUCCESS;
+		return NDR_ERR_SUCCESS;
 }
 enum ndr_err_code ndr_pull_WbemClass_(struct ndr_pull *ndr, int ndr_flags, struct WbemClass *r);
 enum ndr_err_code ndr_pull_WbemClass_(struct ndr_pull *ndr, int ndr_flags, struct WbemClass *r)
@@ -3633,25 +4277,25 @@ enum ndr_err_code ndr_pull_WbemClassObject(struct ndr_pull *ndr, int ndr_flags, 
 
 	//tc = NDR_PULL_GET_MEM_CTX(ndr);
 	ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
-        NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->flags));
+	NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->flags));
 	if (r->flags & WCF_DECORATIONS) {
-        NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->__SERVER));
-        NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->__NAMESPACE));
+		NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->__SERVER));
+		NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->__NAMESPACE));
 	}
-    if (r->flags & WCF_CLASS) {
-        r->sup_class = talloc_zero(r, struct WbemClass);
-        r->sup_methods = talloc_zero(r, struct WbemMethods);
-        r->obj_class = talloc_zero(r, struct WbemClass);
-        r->obj_methods = talloc_zero(r, struct WbemMethods);
-        //
-        NDR_CHECK(ndr_pull_WbemClass(ndr, r->sup_class));
-        NDR_PULL_SET_MEM_CTX(ndr, r->sup_methods, 0);
-        NDR_CHECK(ndr_pull_WbemMethods(ndr, 0, r->sup_methods));
-        //
-        NDR_CHECK(ndr_pull_WbemClass(ndr, r->obj_class));
-        NDR_PULL_SET_MEM_CTX(ndr, r->obj_methods, 0);
-        NDR_CHECK(ndr_pull_WbemMethods(ndr, 0, r->obj_methods));
-    }
+	if (r->flags & WCF_CLASS) {
+		r->sup_class = talloc_zero(r, struct WbemClass);
+		r->sup_methods = talloc_zero(r, struct WbemMethods);
+		r->obj_class = talloc_zero(r, struct WbemClass);
+		r->obj_methods = talloc_zero(r, struct WbemMethods);
+		//
+		NDR_CHECK(ndr_pull_WbemClass(ndr, r->sup_class));
+		NDR_PULL_SET_MEM_CTX(ndr, r->sup_methods, 0);
+		NDR_CHECK(ndr_pull_WbemMethods(ndr, 0, r->sup_methods));
+		//
+		NDR_CHECK(ndr_pull_WbemClass(ndr, r->obj_class));
+		NDR_PULL_SET_MEM_CTX(ndr, r->obj_methods, 0);
+		NDR_CHECK(ndr_pull_WbemMethods(ndr, 0, r->obj_methods));
+	}
 	// if (r->flags & WCF_DECORATIONS) {
 	// 	r->sup_class = talloc_zero(r, struct WbemClass);
 	// 	NDR_PULL_SET_MEM_CTX(ndr, r->sup_class, 0);
