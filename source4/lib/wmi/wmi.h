@@ -164,8 +164,8 @@ struct WbemClass {
 
 struct WbemMethod {
 	CIMSTRING name;/* [null_is_ffffffff,relative,string,charset(UTF16)] */
-	uint32_t u0;
-	uint32_t u1;
+	uint32_t flags;
+	uint32_t origin;
 	struct WbemQualifiers *qualifiers;/* [relative] */
 	struct WbemClassObject *in;/* [relative,subcontext(4)] */
 	struct WbemClassObject *out;/* [subcontext(4),relative] */

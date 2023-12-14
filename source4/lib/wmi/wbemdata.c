@@ -130,7 +130,7 @@ enum ndr_err_code ndr_pull_WbemMethod(struct ndr_pull *ndr, int ndr_flags, struc
 void ndr_print_WbemMethod(struct ndr_print *ndr, const char *name, const struct WbemMethod *r);
 
 enum ndr_err_code ndr_push_WbemMethods(struct ndr_push *ndr, int ndr_flags, const struct WbemMethods *r);
-enum ndr_err_code ndr_pull_WbemMethods(struct ndr_pull *ndr, int ndr_flags, struct WbemMethods *r);
+enum ndr_err_code ndr_pull_WbemMethods(struct ndr_pull *ndr, struct WbemMethods *r);
 void ndr_print_WbemMethods(struct ndr_print *ndr, const char *name, const struct WbemMethods *r);
 
 enum ndr_err_code ndr_push_WbemInstance_priv(struct ndr_push *ndr, int ndr_flags, const struct WbemClassObject *r);
@@ -143,11 +143,14 @@ enum ndr_err_code ndr_pull_WbemClassObject(struct ndr_pull *ndr, int ndr_flags, 
 enum ndr_err_code ndr_push_WbemClassObject(struct ndr_push *ndr, int ndr_flags, const struct WbemClassObject *r);
 void ndr_print_WbemClassObject(struct ndr_print *ndr, const char *name, const struct WbemClassObject *r);
 
+void duplicate_CIMVAR(TALLOC_CTX *mem_ctx, const union CIMVAR *src, union CIMVAR *dst, enum CIMTYPE_ENUMERATION cimtype);
+
 enum {
 	DATATYPE_CLASSOBJECT = 2,
 	DATATYPE_OBJECT = 3,
 	COFLAG_IS_CLASS = 4,
 };
+
 void dump_hex(const char* name, uint32_t size, const uint8_t* data);
 void dump_hex(const char* name, uint32_t size, const uint8_t* data) {
     printf("%s: %d", name, size);
@@ -166,6 +169,10 @@ void swap_off(uint32_t* l, uint32_t* r) {
 	*r = v;
 }
 
+void print_NDR_ERROR(enum ndr_err_code status, const char* file, int line);
+void print_NDR_ERROR(enum ndr_err_code status, const char* file, int line) {
+	printf("error '%d' at %s:%d\n", status, file, line);
+}
 #ifdef NDR_CHECK
 #undef NDR_CHECK
 #endif
@@ -173,7 +180,7 @@ void swap_off(uint32_t* l, uint32_t* r) {
 	enum ndr_err_code _status; \
 	_status = call; \
 	if (unlikely(!NDR_ERR_CODE_IS_SUCCESS(_status))) {	\
-		printf("error '%d' at %s:%d\n", _status, __FILE__, __LINE__);\
+		print_NDR_ERROR(_status, __FILE__, __LINE__); \
 		return _status; \
 	} \
 } while (0)
@@ -205,6 +212,7 @@ static enum ndr_err_code marshal(TALLOC_CTX *mem_ctx, struct IUnknown *pv, struc
 	}
 	o->u_objref.u_custom.pData = talloc_realloc(mp, ndr->data, uint8_t, ndr->offset);
 	o->u_objref.u_custom.size = ndr->offset;
+	dump_hex("output: ", ndr->offset, o->u_objref.u_custom.pData);
 	mp->size = sizeof(struct OBJREF) - sizeof(union OBJREF_Types) + sizeof(struct u_custom) + o->u_objref.u_custom.size - 4;
 	if (DEBUGLVL(9)) {
 		NDR_PRINT_DEBUG(WbemClassObject, wco);
@@ -330,35 +338,107 @@ WERROR IWbemClassObject_SpawnInstance(struct IWbemClassObject *d, TALLOC_CTX *me
 
 WERROR IWbemClassObject_Get(struct IWbemClassObject *d, TALLOC_CTX *mem_ctx, const char *name, uint32_t flags, union CIMVAR *val, enum CIMTYPE_ENUMERATION *cimtype, uint32_t *flavor)
 {
-	//DCOM_TODO: uint32_t i;
-	//DCOM_TODO: for (i = 0; i < d->obj_class->__PROPERTY_COUNT; ++i) {
-	//DCOM_TODO:	if (!strcmp(d->obj_class->properties[i].property.name, name)) {
-	//DCOM_TODO:		duplicate_CIMVAR(mem_ctx, &d->instance->data[i], val, d->obj_class->properties[i].property.desc->cimtype);
-	//DCOM_TODO:		if (cimtype != NULL)
-	//DCOM_TODO:			*cimtype = d->obj_class->properties[i].property.desc->cimtype;
-	//DCOM_TODO:		if (flavor != NULL)
-	//DCOM_TODO:			*flavor = 0; /* FIXME:avg implement flavor */
-	//DCOM_TODO:		return WERR_OK;
-	//DCOM_TODO:	}
-	//DCOM_TODO:}
+	struct WbemClassObject *wco;
+	uint32_t i;
+
+	wco = (struct WbemClassObject *)d->object_data;
+	for (i = 0; i < wco->obj_class->__PROPERTY_COUNT; ++i) {
+		if (!strcmp(wco->obj_class->properties[i].name, name)) {
+			duplicate_CIMVAR(mem_ctx, &wco->instance->data[i], val, wco->obj_class->properties[i].desc->cimtype);
+			if (cimtype != NULL)
+				*cimtype = wco->obj_class->properties[i].desc->cimtype;
+			if (flavor != NULL)
+				*flavor = 0; /* FIXME:avg implement flavor */
+			return WERR_OK;
+		}
+	}
 	return WERR_NOT_FOUND;
 }
 
 WERROR IWbemClassObject_Put(struct IWbemClassObject *d, TALLOC_CTX *mem_ctx, const char *name, uint32_t flags, union CIMVAR *val, enum CIMTYPE_ENUMERATION cimtype)
 {
-	//DCOM_TODO:struct IWbemClassObject *wco;
-	//DCOM_TODO:uint32_t i;
+	struct WbemClassObject *wco;
+	uint32_t i;
 
-	//DCOM_TODO:wco = (struct IWbemClassObject *)d->object_data;
-	//DCOM_TODO:for (i = 0; i < wco->obj_class->__PROPERTY_COUNT; ++i) {
-	//DCOM_TODO:	if (!strcmp(wco->obj_class->properties[i].property.name, name)) {
-	//DCOM_TODO:		if (cimtype && cimtype != wco->obj_class->properties[i].property.desc->cimtype) return WERR_INVALID_PARAMETER;
-	//DCOM_TODO:		wco->instance->default_flags[i] = 0;
-	//DCOM_TODO:		duplicate_CIMVAR(wco->instance, val, &wco->instance->data[i], wco->obj_class->properties[i].property.desc->cimtype);
-	//DCOM_TODO:		return WERR_OK;
-	//DCOM_TODO:	}
-	//DCOM_TODO:}
+	wco = (struct WbemClassObject *)d->object_data;
+	for (i = 0; i < wco->obj_class->__PROPERTY_COUNT; ++i) {
+		if (!strcmp(wco->obj_class->properties[i].name, name)) {
+			if (cimtype && cimtype != wco->obj_class->properties[i].desc->cimtype) return WERR_INVALID_PARAMETER;
+			wco->instance->default_flags[i] = 0;
+			duplicate_CIMVAR(wco->instance, val, &wco->instance->data[i], wco->obj_class->properties[i].desc->cimtype);
+			return WERR_OK;
+		}
+	}
 	return WERR_NOT_FOUND;
+}
+
+void duplicate_CIMVAR(TALLOC_CTX *mem_ctx, const union CIMVAR *src, union CIMVAR *dst, enum CIMTYPE_ENUMERATION cimtype)
+{
+	uint32_t i;
+
+	switch (cimtype & CIM_TYPEMASK) {
+	case CIM_SINT8:
+	case CIM_UINT8:
+	case CIM_SINT16:
+	case CIM_UINT16:
+	case CIM_SINT32:
+	case CIM_UINT32:
+	case CIM_SINT64:
+	case CIM_UINT64:
+	case CIM_REAL32:
+	case CIM_REAL64:
+	case CIM_BOOLEAN:
+		*dst = *src;
+		break;
+	case CIM_STRING:
+	case CIM_DATETIME:
+	case CIM_REFERENCE:
+		dst->v_string = talloc_strdup(mem_ctx, src->v_string);
+		break;
+	case CIM_OBJECT:
+		// dst->v_object = talloc_zero(mem_ctx, struct WbemClassObject);
+		// duplicate_WbemClassObject(dst->v_object, src->v_object, dst->v_object);
+		break;
+	case CIM_ARR_SINT8:
+	case CIM_ARR_UINT8:
+		dst->a_uint8 = talloc_memdup(mem_ctx, src->a_uint8, sizeof(struct arr_uint8));
+		dst->a_uint8->count = src->a_uint8->count;
+		dst->a_uint8->item = talloc_memdup(dst->a_uint8, src->a_uint8->item, src->a_uint8->count);
+		break;
+	case CIM_ARR_SINT16:
+	case CIM_ARR_UINT16:
+	case CIM_ARR_BOOLEAN:
+		dst->a_uint8 = talloc_memdup(mem_ctx, src->a_uint8, sizeof(struct arr_uint8));
+		dst->a_uint8->count = src->a_uint8->count;
+		dst->a_uint8->item = talloc_memdup(dst->a_uint8, src->a_uint8->item, 2*src->a_uint8->count);
+		break;
+	case CIM_ARR_SINT32:
+	case CIM_ARR_UINT32:
+	case CIM_ARR_REAL32:
+		dst->a_uint8 = talloc_memdup(mem_ctx, src->a_uint8, sizeof(struct arr_uint8));
+		dst->a_uint8->count = src->a_uint8->count;
+		dst->a_uint8->item = talloc_memdup(dst->a_uint8, src->a_uint8->item, 4*src->a_uint8->count);
+		break;
+	case CIM_ARR_SINT64:
+	case CIM_ARR_UINT64:
+	case CIM_ARR_REAL64:
+		dst->a_uint8 = talloc_memdup(mem_ctx, src->a_uint8, sizeof(struct arr_uint8));
+		dst->a_uint8->count = src->a_uint8->count;
+		dst->a_uint8->item = talloc_memdup(dst->a_uint8, src->a_uint8->item, 8*src->a_uint8->count);
+		break;
+	case CIM_ARR_STRING:
+	case CIM_ARR_DATETIME:
+	case CIM_ARR_REFERENCE:
+		dst->a_uint8 = talloc_memdup(mem_ctx, src->a_uint8, sizeof(struct arr_uint8));
+		dst->a_uint8->count = src->a_uint8->count;
+		dst->a_uint8->item = talloc_memdup(dst->a_uint8, src->a_uint8->item, sizeof(CIMSTRING)*src->a_uint8->count);
+		for (i = 0; i < src->a_uint8->count; ++i)
+			dst->a_string->item[i] = talloc_strdup(dst->a_uint8->item, src->a_string->item[i]);
+		break;
+	default:
+		DEBUG(0, ("duplicate_CIMVAR: cimtype 0x%04X not supported\n", cimtype & CIM_TYPEMASK));
+		break;
+	}
 }
 
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
@@ -1099,6 +1179,33 @@ enum ndr_err_code ndr_push_arr_CIMSTRING(struct ndr_push *ndr, int ndr_flags, co
 	return NDR_ERR_SUCCESS;
 }
 
+enum ndr_err_code ndr_pull_arr_CIMSTRING2(struct ndr_pull *heap, struct arr_CIMSTRING *r);
+enum ndr_err_code ndr_pull_arr_CIMSTRING2(struct ndr_pull *heap, struct arr_CIMSTRING *r)
+{
+	uint32_t _ptr_item;
+	TALLOC_CTX *prev_ctx;
+
+	NDR_CHECK(ndr_pull_align(heap, 4));
+	NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &r->count));
+	NDR_PULL_ALLOC_N(heap, r->item, r->count);
+
+	prev_ctx = heap->current_mem_ctx;
+	heap->current_mem_ctx = r->item;
+
+	for (int i = 0; i < r->count; ++i) {
+		NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &_ptr_item));
+		if (_ptr_item) {
+			swap_off(&heap->offset, &_ptr_item);
+			NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &(r->item)[i]));
+			swap_off(&heap->offset, &_ptr_item);
+		} else {
+			(r->item)[i] = NULL;
+		}
+	}
+	heap->current_mem_ctx = prev_ctx;
+	return NDR_ERR_SUCCESS;
+}
+
 enum ndr_err_code ndr_pull_arr_CIMSTRING(struct ndr_pull *ndr, int ndr_flags, struct arr_CIMSTRING *r)
 {
 	uint32_t _ptr_item;
@@ -1827,10 +1934,12 @@ enum ndr_err_code ndr_pull_CIMVAR2(struct ndr_pull *ndr, struct ndr_pull *heap, 
 
 		case CIM_ARR_STRING: {
 			uint32_t _ptr_a_string;
-			NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_string));
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_a_string));
 			if (_ptr_a_string) {
 				NDR_PULL_ALLOC(ndr, r->a_string);
-				NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_string, _ptr_a_string));
+				swap_off(&heap->offset, &_ptr_a_string);
+				NDR_CHECK(ndr_pull_arr_CIMSTRING2(heap, r->a_string));
+				swap_off(&heap->offset, &_ptr_a_string);
 			} else {
 				r->a_string = NULL;
 			}
@@ -2984,25 +3093,24 @@ enum ndr_err_code ndr_pull_CIMSTRING(struct ndr_pull *ndr, int ndr_flags, CIMSTR
 	uint8_t u;
 	enum ndr_err_code status;
 
-        if (!(ndr_flags & NDR_SCALARS)) return NDR_ERR_SUCCESS;
-
-        NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &u));
-	switch (u) {
-	case 0:
-		u = ndr->flags;
-		ndr->flags |= LIBNDR_FLAG_STR_ASCII | LIBNDR_FLAG_STR_NULLTERM;
-		status = ndr_pull_string(ndr, NDR_SCALARS, r);
-		DEBUG(9, ("%08X: Pull string: %s\n", ndr->offset, *r));
-		ndr->flags = u;
-		return status;
-	case 1:
-		u = ndr->flags;
-		ndr->flags |= LIBNDR_FLAG_STR_NULLTERM;
-		status = ndr_pull_string(ndr, NDR_SCALARS, r);
-		DEBUG(9, ("%08X: Pull string: %s\n", ndr->offset, *r));
-		ndr->flags = u;
-		return status;
-	default: return NDR_ERR_BAD_SWITCH;
+	if (!(ndr_flags & NDR_SCALARS)) return NDR_ERR_SUCCESS;
+		NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &u));
+		switch (u) {
+		case 0:
+			u = ndr->flags;
+			ndr->flags |= LIBNDR_FLAG_STR_ASCII | LIBNDR_FLAG_STR_NULLTERM;
+			status = ndr_pull_string(ndr, NDR_SCALARS, r);
+			DEBUG(9, ("%08X: Pull string: %s\n", ndr->offset, *r));
+			ndr->flags = u;
+			return status;
+		case 1:
+			u = ndr->flags;
+			ndr->flags |= LIBNDR_FLAG_STR_NULLTERM;
+			status = ndr_pull_string(ndr, NDR_SCALARS, r);
+			DEBUG(9, ("%08X: Pull string: %s\n", ndr->offset, *r));
+			ndr->flags = u;
+			return status;
+		default: return NDR_ERR_BAD_SWITCH;
 	}
 }
 
@@ -3205,7 +3313,7 @@ enum ndr_err_code ndr_pull_WbemQualifier2(struct ndr_pull *ndr, struct ndr_pull 
 			}
 		} else {
 			swap_off(&heap->offset, &_ptr_name);
-      NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->name));
+			NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->name));
 			swap_off(&heap->offset, &_ptr_name);
 		}
 	} else {
@@ -3580,26 +3688,26 @@ void ndr_print_WbemProperty(struct ndr_print *ndr, const char *name, const struc
 
 enum ndr_err_code ndr_push_WbemClass(struct ndr_push *ndr, int ndr_flags, const struct WbemClass *r)
 {
-        uint32_t cntr_properties_0;
+	uint32_t cntr_properties_0;
 	uint32_t i, ofs, vofs;
-        {
-                uint32_t _flags_save_STRUCT = ndr->flags;
-                ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
-                if (ndr_flags & NDR_SCALARS) {
-                        NDR_CHECK(ndr_push_align(ndr, 4));
-                        NDR_CHECK(ndr_push_uint8(ndr, NDR_SCALARS, r->u_0));
-                        if (r->__CLASS) {
-                                NDR_CHECK(ndr_push_relative_ptr1(ndr, r->__CLASS));
-                        } else {
-                                NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0xFFFFFFFF));
-                        }
-                        NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->data_size));
-                        NDR_CHECK(ndr_push_CIMSTRINGS(ndr, NDR_SCALARS, &r->__DERIVATION));
-                        NDR_CHECK(ndr_push_WbemQualifiers(ndr, NDR_SCALARS, &r->qualifiers));
-                        NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->__PROPERTY_COUNT));
-                        for (cntr_properties_0 = 0; cntr_properties_0 < r->__PROPERTY_COUNT; cntr_properties_0++) {
-                                NDR_CHECK(ndr_push_WbemProperty(ndr, NDR_SCALARS, &r->properties[cntr_properties_0]));
-                        }
+	{
+		uint32_t _flags_save_STRUCT = ndr->flags;
+		ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+		if (ndr_flags & NDR_SCALARS) {
+			NDR_CHECK(ndr_push_align(ndr, 4));
+			NDR_CHECK(ndr_push_uint8(ndr, NDR_SCALARS, r->u_0));
+			if (r->__CLASS) {
+				NDR_CHECK(ndr_push_relative_ptr1(ndr, r->__CLASS));
+			} else {
+				NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0xFFFFFFFF));
+			}
+			NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->data_size));
+			NDR_CHECK(ndr_push_CIMSTRINGS(ndr, NDR_SCALARS, &r->__DERIVATION));
+			NDR_CHECK(ndr_push_WbemQualifiers(ndr, NDR_SCALARS, &r->qualifiers));
+			NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->__PROPERTY_COUNT));
+			for (cntr_properties_0 = 0; cntr_properties_0 < r->__PROPERTY_COUNT; cntr_properties_0++) {
+				NDR_CHECK(ndr_push_WbemProperty(ndr, NDR_SCALARS, &r->properties[cntr_properties_0]));
+			}
 
 			ofs = ndr->offset;
 			NDR_PUSH_NEED_BYTES(ndr, r->data_size);
@@ -3643,72 +3751,83 @@ enum ndr_err_code ndr_push_WbemClass(struct ndr_push *ndr, int ndr_flags, const 
 
 enum ndr_err_code ndr_pull_WbemClass(struct ndr_pull *ndr, struct WbemClass *r)
 {
-		uint32_t endofs = 0; // to methods
-		uint32_t classNameRef = 0;
-		uint32_t qualifiersSize = 0;
-    TALLOC_CTX *prev_ctx;
-		struct ndr_pull* heap = NULL;
-		NDR_PULL_SET_MEM_CTX(ndr, r, 0);
+	uint32_t endofs = 0; // to methods
+	uint32_t classNameRef = 0;
+	uint32_t qualifiersSize = 0;
+	TALLOC_CTX *prev_ctx;
+	struct ndr_pull* heap = NULL;
+	NDR_PULL_SET_MEM_CTX(ndr, r, 0);
 
-		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &endofs));
-		endofs += ndr->offset - sizeof(endofs);
-		NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->u_0)); // ReservedOctet
-		///
-		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &classNameRef));
-		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->data_size)); // NdTableValueTableLength in octets
-		NDR_CHECK(ndr_pull_CIMSTRINGS(ndr, NDR_SCALARS, &r->__DERIVATION));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &endofs));
+	endofs += ndr->offset - sizeof(endofs);
+	NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->u_0)); // ReservedOctet
+	///
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &classNameRef));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->data_size)); // NdTableValueTableLength in octets
+	NDR_CHECK(ndr_pull_CIMSTRINGS(ndr, NDR_SCALARS, &r->__DERIVATION));
 
-		heap = talloc_zero(ndr->current_mem_ctx, struct ndr_pull);
-		ndr->current_mem_ctx = ndr->current_mem_ctx;
-		heap->data_size = ndr->data_size - ndr->offset;
-		heap->data = ndr->data + ndr->offset;
-		heap->offset = 0;
-		ndr_set_flags(&heap->flags, ndr->flags);
-		NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &qualifiersSize));
-		heap->offset += qualifiersSize - sizeof(uint32_t);
-		NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &r->__PROPERTY_COUNT));
-		heap->offset += (r->__PROPERTY_COUNT * 2 * sizeof(uint32_t)) + r->data_size;
-		NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &heap->data_size));
-		heap->data_size &= 0x7fffffff;
-		heap->data += heap->offset;
-		if (classNameRef != 0xFFFFFFFF) {
-				swap_off(&heap->offset, &classNameRef);
-				NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->__CLASS));
-				swap_off(&heap->offset, &classNameRef);
-		} else {
-				r->__CLASS = NULL;
-		}
-    ///
-    NDR_CHECK(ndr_pull_WbemQualifiers2(ndr, heap, &r->qualifiers));
-		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->__PROPERTY_COUNT));
-		NDR_PULL_ALLOC_N(ndr, r->properties, r->__PROPERTY_COUNT);
-		prev_ctx = NDR_PULL_GET_MEM_CTX(ndr);
-		NDR_PULL_SET_MEM_CTX(ndr, r->properties, 0);
+	heap = talloc_zero(ndr->current_mem_ctx, struct ndr_pull);
+	ndr->current_mem_ctx = ndr->current_mem_ctx;
+	heap->data_size = ndr->data_size - ndr->offset;
+	heap->data = ndr->data + ndr->offset;
+	heap->offset = 0;
+	ndr_set_flags(&heap->flags, ndr->flags);
+	NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &qualifiersSize));
+	heap->offset += qualifiersSize - sizeof(uint32_t);
+	NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &r->__PROPERTY_COUNT));
+	heap->offset += (r->__PROPERTY_COUNT * 2 * sizeof(uint32_t)) + r->data_size;
+	NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &heap->data_size));
+	heap->data_size &= 0x7fffffff;
+	heap->data += heap->offset;
+	if (classNameRef != 0xFFFFFFFF) {
+		swap_off(&heap->offset, &classNameRef);
+		NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->__CLASS));
+		swap_off(&heap->offset, &classNameRef);
+	} else {
+		r->__CLASS = NULL;
+	}
+	///
+	NDR_CHECK(ndr_pull_WbemQualifiers2(ndr, heap, &r->qualifiers));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->__PROPERTY_COUNT));
+	NDR_PULL_ALLOC_N(ndr, r->properties, r->__PROPERTY_COUNT);
+	prev_ctx = NDR_PULL_GET_MEM_CTX(ndr);
+	NDR_PULL_SET_MEM_CTX(ndr, r->properties, 0);
+	for (uint32_t i = 0; i < r->__PROPERTY_COUNT; ++i) {
+		NDR_CHECK(ndr_pull_WbemProperty2(ndr, heap, &(r->properties)[i]));
+	}
+	NDR_PULL_SET_MEM_CTX(ndr, prev_ctx, 0);
+
+	NDR_PULL_ALLOC_N(ndr, r->default_flags, r->__PROPERTY_COUNT);
+	memset(r->default_flags, 1, sizeof(*r->default_flags) * r->__PROPERTY_COUNT);
+	{
+		uint8_t* ptr = ndr->data + ndr->offset;
 		for (uint32_t i = 0; i < r->__PROPERTY_COUNT; ++i) {
-				NDR_CHECK(ndr_pull_WbemProperty2(ndr, heap, &(r->properties)[i]));
+			r->default_flags[i] = 0;
+			copy_bits(ptr, 2*r->properties[i].desc->nr, &r->default_flags[i], 0, 2);
 		}
-		NDR_PULL_SET_MEM_CTX(ndr, prev_ctx, 0);
-    ///
-		printf("class '%s'\n", r->__CLASS);
-		printf("\tderived:\n");
-		for (uint32_t i = 0; i < r->__DERIVATION.count; ++i) {
-			printf("\t\t'%s'\n", r->__DERIVATION.item[i]);
+	}
+	NDR_PULL_ALLOC_N(ndr, r->default_values, r->__PROPERTY_COUNT);
+	memset(r->default_values, 0, sizeof(*r->default_values) * r->__PROPERTY_COUNT);
+	{
+		uint32_t ofs = ndr->offset + ((r->__PROPERTY_COUNT + 3) >> 2);
+		for (uint32_t i = 0; i < r->__PROPERTY_COUNT; ++i) {
+			if (r->default_flags[i] & DEFAULT_FLAG_EMPTY) continue;
+			NDR_CHECK(ndr_pull_set_switch_value(ndr, &r->default_values[i], r->properties[i].desc->cimtype & CIM_TYPEMASK));
+			ndr->offset = ofs + r->properties[i].desc->offset;
+			NDR_CHECK(ndr_pull_CIMVAR(ndr, NDR_SCALARS|NDR_BUFFERS, &r->default_values[i]));
 		}
-		printf("\tqualifiers:\n");
-		for (uint32_t i = 0; i < r->qualifiers.count; ++i) {
-			printf("\t\t'%s'\n", r->qualifiers.item[i]->name);
-		}
-		///
-    ndr->offset = endofs;
-		return NDR_ERR_SUCCESS;
+	}
+
+	ndr->offset = endofs;
+	return NDR_ERR_SUCCESS;
 }
 enum ndr_err_code ndr_pull_WbemClass_(struct ndr_pull *ndr, int ndr_flags, struct WbemClass *r);
 enum ndr_err_code ndr_pull_WbemClass_(struct ndr_pull *ndr, int ndr_flags, struct WbemClass *r)
 {
-    uint32_t _ptr___CLASS;
-    uint32_t cntr_properties_0;
-    TALLOC_CTX *_mem_save_properties_0;
-    uint32_t i;
+	uint32_t _ptr___CLASS;
+	uint32_t cntr_properties_0;
+	TALLOC_CTX *_mem_save_properties_0;
+	uint32_t i;
 
     {
         uint32_t _flags_save_STRUCT = ndr->flags;
@@ -3857,8 +3976,8 @@ enum ndr_err_code ndr_push_WbemMethod(struct ndr_push *ndr, int ndr_flags, const
 			NDR_CHECK(ndr_token_store(ndr, &ndr->relative_list, r->name, ndr->offset));
 			NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0xFFFFFFFF));
 		}
-		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->u0));
-		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->u1));
+		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->flags));
+		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->origin));
 		NDR_CHECK(ndr_push_relative_ptr1(ndr, r->qualifiers));
 		if (r->in) {
 			NDR_CHECK(ndr_push_relative_ptr1(ndr, r->in));
@@ -3904,6 +4023,173 @@ enum ndr_err_code ndr_push_WbemMethod(struct ndr_push *ndr, int ndr_flags, const
 	return NDR_ERR_SUCCESS;
 }
 
+enum ndr_err_code ndr_pull_WbemMethod_InOut(struct ndr_pull *heap, uint32_t ptr, struct WbemClassObject **r);
+enum ndr_err_code ndr_pull_WbemMethod_InOut(struct ndr_pull *heap, uint32_t ptr, struct WbemClassObject **r)
+{
+	TALLOC_CTX *prev_ctx = NULL;
+	if (ptr != 0xFFFFFFFF) {
+		NDR_PULL_ALLOC(heap, *r);
+		NDR_ZERO_STRUCTP(*r);
+
+		prev_ctx = heap->current_mem_ctx;
+		heap->current_mem_ctx = *r;
+		swap_off(&heap->offset, &ptr);
+		{
+			struct ndr_pull *_ndr_in;
+			NDR_CHECK(ndr_pull_subcontext_start(heap, &_ndr_in, 4, -1));
+			if (_ndr_in->data_size) {
+				NDR_CHECK(ndr_pull_WbemClassObject(_ndr_in, NDR_SCALARS|NDR_BUFFERS, *r));
+			} else {
+				talloc_free(*r);
+				*r = NULL;
+			}
+			NDR_CHECK(ndr_pull_subcontext_end(heap, _ndr_in, 4, -1));
+		}
+		swap_off(&heap->offset, &ptr);
+		heap->current_mem_ctx = prev_ctx;
+	} else {
+		*r = NULL;
+	}
+	return NDR_ERR_SUCCESS;
+}
+
+enum ndr_err_code ndr_pull_WbemMethod2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemMethod *r);
+enum ndr_err_code ndr_pull_WbemMethod2(struct ndr_pull *ndr, struct ndr_pull *heap, struct WbemMethod *r)
+{
+	uint32_t _ptr_name;
+	uint32_t _ptr_qualifiers;
+	uint32_t _ptr_in;
+	uint32_t _ptr_out;
+	//TALLOC_CTX *_mem_save_name_0;
+	TALLOC_CTX *prev_ctx = NULL;
+	// TALLOC_CTX *_mem_save_in_0;
+	// TALLOC_CTX *_mem_save_out_0;
+
+	NDR_CHECK(ndr_pull_align(ndr, 4));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_name));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->flags));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->origin));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_qualifiers));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_in));
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_out));
+
+	if (_ptr_name != 0xFFFFFFFF) {
+		swap_off(&heap->offset, &_ptr_name);
+		NDR_CHECK(ndr_pull_CIMSTRING(heap, NDR_SCALARS, &r->name));
+		swap_off(&heap->offset, &_ptr_name);
+	} else {
+		r->name = NULL;
+	}
+	if (_ptr_qualifiers != 0xFFFFFFFF) {
+		NDR_PULL_ALLOC(heap, r->qualifiers);
+		r->qualifiers->count = 0;
+		r->qualifiers->item = NULL;
+		prev_ctx = heap->current_mem_ctx;
+		heap->current_mem_ctx = r->qualifiers;
+		swap_off(&heap->offset, &_ptr_qualifiers);
+		NDR_CHECK(ndr_pull_WbemQualifiers2(heap, heap, r->qualifiers));
+		swap_off(&heap->offset, &_ptr_qualifiers);
+		heap->current_mem_ctx = prev_ctx;
+	} else {
+		r->qualifiers = NULL;
+	}
+	NDR_CHECK(ndr_pull_WbemMethod_InOut(heap, _ptr_in, &r->in));
+	NDR_CHECK(ndr_pull_WbemMethod_InOut(heap, _ptr_out, &r->out));
+	// if (ndr_flags & NDR_SCALARS) {
+	// 	NDR_CHECK(ndr_pull_align(ndr, 4));
+	// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_name));
+	// 	if (_ptr_name != 0xFFFFFFFF) {
+	// 		NDR_PULL_ALLOC(ndr, r->name);
+	// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->name, _ptr_name));
+	// 	} else {
+	// 		r->name = NULL;
+	// 	}
+	// 	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->u0));
+	// 	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->u1));
+	// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_qualifiers));
+	// 	if (_ptr_qualifiers) {
+	// 		NDR_PULL_ALLOC(ndr, r->qualifiers);
+	// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->qualifiers, _ptr_qualifiers));
+	// 	} else {
+	// 		r->qualifiers = NULL;
+	// 	}
+	// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_in));
+	// 	if (_ptr_in) {
+	// 		NDR_PULL_ALLOC(ndr, r->in);
+	// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->in, _ptr_in));
+	// 	} else {
+	// 		r->in = NULL;
+	// 	}
+	// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_out));
+	// 	if (_ptr_out) {
+	// 		NDR_PULL_ALLOC(ndr, r->out);
+	// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->out, _ptr_out));
+	// 	} else {
+	// 		r->out = NULL;
+	// 	}
+	// }
+	// if (ndr_flags & NDR_BUFFERS) {
+	// 	if (r->name) {
+	// 		struct ndr_pull_save _relative_save;
+	// 		ndr_pull_save(ndr, &_relative_save);
+	// 		NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->name));
+	// 		NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->name));
+	// 		ndr_pull_restore(ndr, &_relative_save);
+	// 	}
+	// 	if (r->qualifiers) {
+	// 		struct ndr_pull_save _relative_save;
+	// 		ndr_pull_save(ndr, &_relative_save);
+	// 		NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->qualifiers));
+	// 		_mem_save_qualifiers_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 		NDR_PULL_SET_MEM_CTX(ndr, r->qualifiers, 0);
+	// 		NDR_CHECK(ndr_pull_WbemQualifiers(ndr, NDR_SCALARS|NDR_BUFFERS, r->qualifiers));
+	// 		NDR_PULL_SET_MEM_CTX(ndr, _mem_save_qualifiers_0, 0);
+	// 		ndr_pull_restore(ndr, &_relative_save);
+	// 	}
+	// 	if (r->in) {
+	// 		struct ndr_pull_save _relative_save;
+	// 		ndr_pull_save(ndr, &_relative_save);
+	// 		NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->in));
+	// 		_mem_save_in_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 		NDR_PULL_SET_MEM_CTX(ndr, r->in, 0);
+	// 		{
+	// 			struct ndr_pull *_ndr_in;
+	// 			NDR_CHECK(ndr_pull_subcontext_start(ndr, &_ndr_in, 4, -1));
+	// 			if (_ndr_in->data_size) {
+	// 				NDR_CHECK(ndr_pull_WbemClassObject(_ndr_in, NDR_SCALARS|NDR_BUFFERS, r->in));
+	// 			} else {
+	// 				talloc_free(r->in);
+	// 				r->in = NULL;
+	// 			}
+	// 			NDR_CHECK(ndr_pull_subcontext_end(ndr, _ndr_in, 4, -1));
+	// 		}
+	// 		NDR_PULL_SET_MEM_CTX(ndr, _mem_save_in_0, 0);
+	// 		ndr_pull_restore(ndr, &_relative_save);
+	// 	}
+	// 	if (r->out) {
+	// 		struct ndr_pull_save _relative_save;
+	// 		ndr_pull_save(ndr, &_relative_save);
+	// 		NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->out));
+	// 		_mem_save_out_0 = NDR_PULL_GET_MEM_CTX(ndr);
+	// 		NDR_PULL_SET_MEM_CTX(ndr, r->out, 0);
+	// 		{
+	// 			struct ndr_pull *_ndr_out;
+	// 			NDR_CHECK(ndr_pull_subcontext_start(ndr, &_ndr_out, 4, -1));
+	// 			if (_ndr_out->data_size) {
+	// 				NDR_CHECK(ndr_pull_WbemClassObject(_ndr_out, NDR_SCALARS|NDR_BUFFERS, r->out));
+	// 			} else {
+	// 				talloc_free(r->out);
+	// 				r->out = NULL;
+	// 			}
+	// 			NDR_CHECK(ndr_pull_subcontext_end(ndr, _ndr_out, 4, -1));
+	// 		}
+	// 		NDR_PULL_SET_MEM_CTX(ndr, _mem_save_out_0, 0);
+	// 		ndr_pull_restore(ndr, &_relative_save);
+	// 	}
+	// }
+	return NDR_ERR_SUCCESS;
+}
+
 enum ndr_err_code ndr_pull_WbemMethod(struct ndr_pull *ndr, int ndr_flags, struct WbemMethod *r)
 {
 	uint32_t _ptr_name;
@@ -3923,8 +4209,8 @@ enum ndr_err_code ndr_pull_WbemMethod(struct ndr_pull *ndr, int ndr_flags, struc
 		} else {
 			r->name = NULL;
 		}
-		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->u0));
-		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->u1));
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->flags));
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->origin));
 		NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_qualifiers));
 		if (_ptr_qualifiers) {
 			NDR_PULL_ALLOC(ndr, r->qualifiers);
@@ -4019,8 +4305,8 @@ void ndr_print_WbemMethod(struct ndr_print *ndr, const char *name, const struct 
 		ndr_print_CIMSTRING(ndr, "name", &r->name);
 	}
 	ndr->depth--;
-	ndr_print_uint32(ndr, "u0", r->u0);
-	ndr_print_uint32(ndr, "u1", r->u1);
+	ndr_print_uint32(ndr, "u0", r->flags);
+	ndr_print_uint32(ndr, "u1", r->origin);
 	ndr_print_ptr(ndr, "qualifiers", r->qualifiers);
 	ndr->depth++;
 	if (r->qualifiers) {
@@ -4066,7 +4352,46 @@ enum ndr_err_code ndr_push_WbemMethods(struct ndr_push *ndr, int ndr_flags, cons
 	return NDR_ERR_SUCCESS;
 }
 
-enum ndr_err_code ndr_pull_WbemMethods(struct ndr_pull *ndr, int ndr_flags, struct WbemMethods *r)
+enum ndr_err_code ndr_pull_WbemMethods(struct ndr_pull *ndr, struct WbemMethods *r)
+{
+	uint32_t endofs = 0; // to end
+	struct ndr_pull* heap = NULL;
+	TALLOC_CTX *prev_ctx = NULL;
+	uint32_t prev_flags = ndr->flags;
+
+	ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &endofs));
+	endofs += ndr->offset - sizeof(endofs);
+
+	NDR_CHECK(ndr_pull_align(ndr, 4));
+	NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->count));
+	NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &r->u0));
+	NDR_PULL_ALLOC_N(ndr, r->method, r->count);
+	prev_ctx = NDR_PULL_GET_MEM_CTX(ndr);
+	NDR_PULL_SET_MEM_CTX(ndr, r->method, 0);
+
+	heap = talloc_zero(ndr->current_mem_ctx, struct ndr_pull);
+	ndr->current_mem_ctx = ndr->current_mem_ctx;
+	heap->data_size = ndr->data_size - ndr->offset;
+	heap->data = ndr->data + ndr->offset + (24 * r->count);
+	heap->offset = 0;
+	ndr_set_flags(&heap->flags, ndr->flags);
+	NDR_CHECK(ndr_pull_uint32(heap, NDR_SCALARS, &heap->data_size));
+	heap->data_size &= 0x7fffffff;
+	heap->data += heap->offset;
+
+	for (uint32_t i = 0; i < r->count; ++i) {
+		NDR_CHECK(ndr_pull_WbemMethod2(ndr, heap, &(r->method)[i]));
+	}
+	NDR_PULL_SET_MEM_CTX(ndr, prev_ctx, 0);
+
+	ndr->flags = prev_flags;
+	ndr->offset = endofs;
+	return NDR_ERR_SUCCESS;
+}
+
+enum ndr_err_code ndr_pull_WbemMethods_(struct ndr_pull *ndr, int ndr_flags, struct WbemMethods *r);
+enum ndr_err_code ndr_pull_WbemMethods_(struct ndr_pull *ndr, int ndr_flags, struct WbemMethods *r)
 {
 	uint32_t cntr_method_0;
 	TALLOC_CTX *_mem_save_method_0;
@@ -4290,11 +4615,11 @@ enum ndr_err_code ndr_pull_WbemClassObject(struct ndr_pull *ndr, int ndr_flags, 
 		//
 		NDR_CHECK(ndr_pull_WbemClass(ndr, r->sup_class));
 		NDR_PULL_SET_MEM_CTX(ndr, r->sup_methods, 0);
-		NDR_CHECK(ndr_pull_WbemMethods(ndr, 0, r->sup_methods));
+		NDR_CHECK(ndr_pull_WbemMethods(ndr, r->sup_methods));
 		//
 		NDR_CHECK(ndr_pull_WbemClass(ndr, r->obj_class));
 		NDR_PULL_SET_MEM_CTX(ndr, r->obj_methods, 0);
-		NDR_CHECK(ndr_pull_WbemMethods(ndr, 0, r->obj_methods));
+		NDR_CHECK(ndr_pull_WbemMethods(ndr, r->obj_methods));
 	}
 	// if (r->flags & WCF_DECORATIONS) {
 	// 	r->sup_class = talloc_zero(r, struct WbemClass);

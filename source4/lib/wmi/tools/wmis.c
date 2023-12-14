@@ -156,6 +156,239 @@ error:
 	return result;
 }
 */
+void print_CIMVALUE(FILE* out, enum CIMTYPE_ENUMERATION cimtype, const union CIMVAR* value, int level);
+void print_CIMTYPE(FILE* out, enum CIMTYPE_ENUMERATION cimtype, int level);
+void print_WbemQualifier(FILE* out, const struct WbemQualifier *c, int level);
+void print_WbemProperty(FILE* out, const struct WbemProperty *c, int level);
+void print_WbemClassMethod(FILE* out, struct WbemMethod* m, int level);
+void print_WbemClassMethods(FILE* out, struct WbemMethods* m, int level);
+void print_WbemClass(FILE* out, struct WbemClass *c, int level);
+void print_WbemClassObject(FILE* out, struct WbemClassObject *r, int level);
+void print_IWbemClassObject(FILE* out, struct IWbemClassObject *wco, int level);
+
+void print_LEVEL(FILE* out, int level);
+void print_LEVEL(FILE* out, int level) {
+	for (; level > 0; --level)
+		fprintf(out, "\t");
+}
+void print_CIMVALUE(FILE* out, enum CIMTYPE_ENUMERATION cimtype, const union CIMVAR* value, int level) {
+	switch (cimtype) {
+		case CIM_EMPTY: fprintf(out, "''"); break;
+		case CIM_SINT16: fprintf(out, "%d", value->v_sint16); break;
+		case CIM_SINT32: fprintf(out, "%d", value->v_sint32); break;
+		case CIM_REAL32: fprintf(out, "%x", value->v_real32); break;
+		case CIM_REAL64: fprintf(out, "%lx", value->v_real64); break;
+		case CIM_STRING: fprintf(out, "%s", value->v_string ? value->v_string : "(NULL)"); break;
+		case CIM_BOOLEAN: fprintf(out, "%s", value->v_boolean ? "TRUE" : "FALSE"); break;
+		case CIM_OBJECT: fprintf(out, "!"); break;
+		case CIM_SINT8: fprintf(out, "%d", (int)value->v_sint8); break;
+		case CIM_UINT8: fprintf(out, "%x", (uint32_t)value->v_uint8); break;
+		case CIM_UINT16: fprintf(out, "%x", value->v_uint16); break;
+		case CIM_UINT32: fprintf(out, "%x", value->v_uint32); break;
+		case CIM_SINT64: fprintf(out, "%ld", value->v_sint64); break;
+		case CIM_UINT64: fprintf(out, "%lx", value->v_uint64); break;
+		case CIM_DATETIME: fprintf(out, "%s", value->v_datetime ? value->v_datetime : "(NULL)"); break;
+		case CIM_REFERENCE: fprintf(out, "%s", value->v_reference ? value->v_reference : "(NULL)"); break;
+		case CIM_CHAR16: fprintf(out, "%x", value->v_uint16); break;
+		case CIM_FLAG_ARRAY: fprintf(out, "CIM_FLAG_ARRAY"); break;
+		case CIM_ILLEGAL: fprintf(out, "-"); break;
+		case CIM_TYPEMASK: fprintf(out, "CIM_TYPEMASK"); break;
+		case CIM_ARR_SINT8: fprintf(out, "CIM_ARR_SINT8"); break;
+		case CIM_ARR_UINT8: fprintf(out, "CIM_ARR_UINT8"); break;
+		case CIM_ARR_SINT16: fprintf(out, "CIM_ARR_SINT16"); break;
+		case CIM_ARR_UINT16: fprintf(out, "CIM_ARR_UINT16"); break;
+		case CIM_ARR_SINT32: fprintf(out, "CIM_ARR_SINT32"); break;
+		case CIM_ARR_UINT32: fprintf(out, "CIM_ARR_UINT32"); break;
+		case CIM_ARR_SINT64: fprintf(out, "CIM_ARR_SINT64"); break;
+		case CIM_ARR_UINT64: fprintf(out, "CIM_ARR_UINT64"); break;
+		case CIM_ARR_REAL32: fprintf(out, "CIM_ARR_REAL32"); break;
+		case CIM_ARR_REAL64: fprintf(out, "CIM_ARR_REAL64"); break;
+		case CIM_ARR_BOOLEAN: fprintf(out, "CIM_ARR_BOOLEAN"); break;
+		case CIM_ARR_STRING: {
+			if (value->a_string) {
+				fprintf(out, "%d[", value->a_string->count);
+				for (uint32_t i = 0; i < value->a_string->count; ++i) {
+					if (value->a_string->item[i])
+						fprintf(out, "\"%s\"", value->a_string->item[i]);
+					else
+						fprintf(out, "NULL ");
+				}
+				fprintf(out, "]");
+			}
+			else {
+				fprintf(out, "(NULL)"); break;
+			}
+			break;
+		}
+		case CIM_ARR_DATETIME: fprintf(out, "CIM_ARR_DATETIME"); break;
+		case CIM_ARR_REFERENCE: fprintf(out, "CIM_ARR_REFERENCE"); break;
+		case CIM_ARR_CHAR16: fprintf(out, "CIM_ARR_CHAR16"); break;
+		case CIM_ARR_OBJECT: fprintf(out, "CIM_ARR_OBJECT"); break;
+		default:
+			fprintf(out, "UNKNOWN(0x%x)", cimtype); break;
+	}
+}
+void print_CIMTYPE(FILE* out, enum CIMTYPE_ENUMERATION cimtype, int level) {
+	switch (cimtype) {
+		case CIM_EMPTY: fprintf(out, "CIM_EMPTY"); break;
+		case CIM_SINT16: fprintf(out, "CIM_SINT16"); break;
+		case CIM_SINT32: fprintf(out, "CIM_SINT32"); break;
+		case CIM_REAL32: fprintf(out, "CIM_REAL32"); break;
+		case CIM_REAL64: fprintf(out, "CIM_REAL64"); break;
+		case CIM_STRING: fprintf(out, "CIM_STRING"); break;
+		case CIM_BOOLEAN: fprintf(out, "CIM_BOOLEAN"); break;
+		case CIM_OBJECT: fprintf(out, "CIM_OBJECT"); break;
+		case CIM_SINT8: fprintf(out, "CIM_SINT8"); break;
+		case CIM_UINT8: fprintf(out, "CIM_UINT8"); break;
+		case CIM_UINT16: fprintf(out, "CIM_UINT16"); break;
+		case CIM_UINT32: fprintf(out, "CIM_UINT32"); break;
+		case CIM_SINT64: fprintf(out, "CIM_SINT64"); break;
+		case CIM_UINT64: fprintf(out, "CIM_UINT64"); break;
+		case CIM_DATETIME: fprintf(out, "CIM_DATETIME"); break;
+		case CIM_REFERENCE: fprintf(out, "CIM_REFERENCE"); break;
+		case CIM_CHAR16: fprintf(out, "CIM_CHAR16"); break;
+		case CIM_FLAG_ARRAY: fprintf(out, "CIM_FLAG_ARRAY"); break;
+		case CIM_ILLEGAL: fprintf(out, "CIM_ILLEGAL"); break;
+		case CIM_TYPEMASK: fprintf(out, "CIM_TYPEMASK"); break;
+		case CIM_ARR_SINT8: fprintf(out, "CIM_ARR_SINT8"); break;
+		case CIM_ARR_UINT8: fprintf(out, "CIM_ARR_UINT8"); break;
+		case CIM_ARR_SINT16: fprintf(out, "CIM_ARR_SINT16"); break;
+		case CIM_ARR_UINT16: fprintf(out, "CIM_ARR_UINT16"); break;
+		case CIM_ARR_SINT32: fprintf(out, "CIM_ARR_SINT32"); break;
+		case CIM_ARR_UINT32: fprintf(out, "CIM_ARR_UINT32"); break;
+		case CIM_ARR_SINT64: fprintf(out, "CIM_ARR_SINT64"); break;
+		case CIM_ARR_UINT64: fprintf(out, "CIM_ARR_UINT64"); break;
+		case CIM_ARR_REAL32: fprintf(out, "CIM_ARR_REAL32"); break;
+		case CIM_ARR_REAL64: fprintf(out, "CIM_ARR_REAL64"); break;
+		case CIM_ARR_BOOLEAN: fprintf(out, "CIM_ARR_BOOLEAN"); break;
+		case CIM_ARR_STRING: fprintf(out, "CIM_ARR_STRING"); break;
+		case CIM_ARR_DATETIME: fprintf(out, "CIM_ARR_DATETIME"); break;
+		case CIM_ARR_REFERENCE: fprintf(out, "CIM_ARR_REFERENCE"); break;
+		case CIM_ARR_CHAR16: fprintf(out, "CIM_ARR_CHAR16"); break;
+		case CIM_ARR_OBJECT: fprintf(out, "CIM_ARR_OBJECT"); break;
+		default:
+			fprintf(out, "UNKNOWN(0x%x)", cimtype); break;
+	}
+}
+void print_WbemQualifier(FILE* out, const struct WbemQualifier *c, int level) {
+	fprintf(out, "'%s'", c->name ? c->name : "(NULL)");
+	fprintf(out, " flavors=%x", c->flavors);
+	fprintf(out, " type=");
+	print_CIMTYPE(out, c->cimtype, level+1);
+	fprintf(out, " value=");
+	print_CIMVALUE(out, c->cimtype, &c->value, level+1);
+}
+
+void print_WbemProperty(FILE* out, const struct WbemProperty *c, int level) {
+	fprintf(out, "'%s'", c->name ? c->name : "(NULL)");
+	if (c->desc) {
+		fprintf(out, " depth=%d", c->desc->depth);
+		fprintf(out, " offset=%d", c->desc->offset);
+		fprintf(out, " nr=%d", c->desc->nr);
+		fprintf(out, " type=");
+		print_CIMTYPE(out, c->desc->cimtype, level+1);
+		fprintf(out, " qualifiers=[%d]", c->desc->qualifiers.count);
+		for (uint32_t i = 0; i < c->desc->qualifiers.count; ++i) {
+			fprintf(out, "\n");
+			print_LEVEL(out, level+1);
+			fprintf(out, "[%d] ", i);
+			print_WbemQualifier(out, c->desc->qualifiers.item[i], level+1);
+		}
+	}
+}
+
+void print_WbemClassMethod(FILE* out, struct WbemMethod* m, int level) {
+	if (!m) return;
+	fprintf(out, "'%s'", m->name ? m->name : "(NULL)");
+	fprintf(out, " flags=%x", m->flags);
+	fprintf(out, " origin=%d", m->origin);
+	if (m->qualifiers) {
+		fprintf(out, " qualifiers=[%d]", m->qualifiers->count);
+	}
+	for (uint32_t i = 0; i < m->qualifiers->count; ++i) {
+		fprintf(out, "\n");
+		print_LEVEL(out, level+1);
+		fprintf(out, "qual[%d] ", i);
+		print_WbemQualifier(out, m->qualifiers->item[i], level+1);
+	}
+	if (m->in) {
+		fprintf(out, "\n");
+		print_LEVEL(out, level+1);
+		fprintf(out, "in:\n");
+		print_WbemClassObject(out, m->in, level+1);
+	}
+	if (m->out) {
+		fprintf(out, "\n");
+		print_LEVEL(out, level+1);
+		fprintf(out, "out:\n");
+		print_WbemClassObject(out, m->out, level+1);
+	}
+}
+void print_WbemClassMethods(FILE* out, struct WbemMethods* m, int level) {
+	if (m && m->count) {
+		print_LEVEL(out, level);
+		fprintf(out, "methods: [%d]\n", m->count);
+		for (uint32_t i = 0; i < m->count; ++i) {
+			print_LEVEL(out, level+1);
+			fprintf(out,"[%d] ", i);
+			print_WbemClassMethod(out, &m->method[i], level+1);
+			fprintf(out, "\n");
+		}
+	}
+}
+void print_WbemClass(FILE* out, struct WbemClass *c, int level) {
+	if (!c) return;
+	if (c->__DERIVATION.count) {
+		print_LEVEL(out, level);
+		fprintf(out, "derived: [%d]\n", c->__DERIVATION.count);
+		for (uint32_t i = 0; i < c->__DERIVATION.count; ++i) {
+			print_LEVEL(out, level+1);
+			fprintf(out, "[%d] '%s'\n", i, c->__DERIVATION.item[i]);
+		}
+	}
+	if (c->qualifiers.count) {
+		print_LEVEL(out, level);
+		fprintf(out, "qualifiers: [%d]\n", c->qualifiers.count);
+		for (uint32_t i = 0; i < c->qualifiers.count; ++i) {
+			print_LEVEL(out, level+1);
+			fprintf(out,"[%d] ", i);
+			print_WbemQualifier(out, c->qualifiers.item[i], level+1);
+			fprintf(out, "\n");
+		}
+	}
+	if (c->__PROPERTY_COUNT) {
+		print_LEVEL(out, level);
+		printf("properties: [%d]\n", c->__PROPERTY_COUNT);
+		for (uint32_t i = 0; i < c->__PROPERTY_COUNT; ++i) {
+			print_LEVEL(out, level+1);
+			fprintf(out, "[%d] ", i);
+			print_WbemProperty(out, &c->properties[i], level+1);
+			fprintf(out, "\n");
+		}
+	}
+}
+void print_WbemClassObject(FILE* out, struct WbemClassObject *r, int level) {
+	if (!r) return;
+	if (r->sup_class && r->sup_class->__CLASS) {
+		print_LEVEL(out, level);
+		fprintf(out, "super class: '%s'\n", r->sup_class->__CLASS);
+		print_WbemClass(out, r->sup_class, level+1);
+		print_WbemClassMethods(out, r->sup_methods, level+1);
+	}
+	if (r->obj_class && r->obj_class->__CLASS) {
+		print_LEVEL(out, level);
+		fprintf(out, "current class: '%s'\n", r->obj_class->__CLASS);
+		print_WbemClass(out, r->obj_class, level+1);
+		print_WbemClassMethods(out, r->obj_methods, level+1);
+	}
+}
+void print_IWbemClassObject(FILE* out, struct IWbemClassObject *wco, int level) {
+	struct WbemClassObject *r = NULL;
+	if (wco) {
+		r = (struct WbemClassObject*)wco->object_data;
+		print_WbemClassObject(out, r, level);
+	}
+}
 WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32_t *ret_code);
 WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32_t *ret_code)
 {
@@ -173,7 +406,8 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	result = IWbemServices_GetObject(pWS, ctx, objectPath,
 					 WBEM_FLAG_RETURN_WBEM_COMPLETE, NULL, &wco, NULL);
 	WERR_CHECK("GetObject. ");
-    wco->obj = pWS->obj;
+	//print_IWbemClassObject(stdout, wco, 0);
+    //wco->obj = pWS->obj;
     (void)methodName;
     (void)inc;
     (void)outc;
@@ -190,7 +424,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	v.v_string = cmdline;
 	result = IWbemClassObject_Put(in, ctx, "CommandLine", 0, &v, 0);
 	WERR_CHECK("IWbemClassObject_Put(CommandLine).");
-
+	print_IWbemClassObject(stdout, in, 0);
 	methodName.data = "Create";
 	result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, in, &out,
 					  NULL);
@@ -241,7 +475,8 @@ int main(int argc, char **argv)
 	WERR_CHECK("WBEM_ConnectServer.");
 
 	printf("1: Creating directory C:\\wmi_test_dir_tmp using method Win32_Process.Create\n");
-	result = WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir_tmp", &cnt);
+	//result = WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir_tmp", &cnt);
+	result = WBEM_RemoteExecute(pWS, "notepad.exe", &cnt);
 	//WERR_CHECK("WBEM_RemoteExecute.");
 	printf("2: ReturnCode: %d\n", cnt);
 
