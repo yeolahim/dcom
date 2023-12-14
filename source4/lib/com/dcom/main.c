@@ -289,13 +289,13 @@ end:
 struct dcom_object_handle *object_exporter_get_handle(struct dcom_object_exporter *ox,
                                                         struct OBJREF* obj, struct GUID* iid)
 {
-    struct dcom_object_handle *handle;
-    for (handle = ox->object_handles; handle; handle = handle->next) {
-        if ((handle->oid = obj->u_objref.u_standard.std.oid) && GUID_equal(&handle->iid, iid)) {
-            return handle;
-        }
-    }
-    return NULL;
+	struct dcom_object_handle *handle;
+	for (handle = ox->object_handles; handle; handle = handle->next) {
+			if ((handle->oid == obj->u_objref.u_standard.std.oid) && GUID_equal(&handle->iid, iid)) {
+					return handle;
+			}
+	}
+	return NULL;
 }
 
 struct dcom_object_handle *object_exporter_update_handle(struct com_context *ctx, struct dcom_object_exporter *ox, struct OBJREF* obj, struct GUID* iid, uint32_t context_id)
@@ -306,9 +306,9 @@ struct dcom_object_handle *object_exporter_update_handle(struct com_context *ctx
 		handle = talloc_zero(ctx, struct dcom_object_handle);
 		DLIST_ADD(ox->object_handles, handle);
 		handle->oid = obj->u_objref.u_standard.std.oid;
-        handle->iid = *iid;
-        handle->context_id = ++context_id;
-        handle->handle = dcerpc_pipe_binding_handle(ox->pipe, NULL, ndr_table_by_uuid(iid));
+		handle->iid = *iid;
+		handle->context_id = ++context_id;
+		handle->handle = dcerpc_pipe_binding_handle(ox->pipe, NULL, ndr_table_by_uuid(iid));
 	}
 	return handle;
 }
@@ -742,7 +742,7 @@ int is_ip_binding(const char* s)
 
 NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct GUID* iid, struct dcerpc_binding_handle **h)
 {
-  struct dcerpc_binding *binding;
+	struct dcerpc_binding *binding;
 	//DCOM_TODO: uint64_t oxid;
 	NTSTATUS status;
 	int i, j, isimilar;
@@ -758,7 +758,7 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 	}
 	guid_str = GUID_string(NULL, iid);
 	p = ox->pipe;
-    DEBUG(0, ("dcom_get_pipe_impl ox->pipe ok %p->%p %s %lx\n", (void*)ox, (void*)p, guid_str, ox->oxid));
+	DEBUG(0, ("dcom_binding_handle ox->pipe ok ox:%p pipe:%p iid:%s oxid:%lx\n", (void*)ox, (void*)p, guid_str, ox->oxid));
 	table = ndr_table_by_uuid(iid);
 	if (table == NULL) {
 		DEBUG(0,(__location__": dcom_get_pipe - unrecognized interface{%s}\n", guid_str));
@@ -772,36 +772,37 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 	}
 
 	if (p) {
-        if (!GUID_equal(&p->syntax.uuid, iid)) {
-            //ox->pipe->syntax.uuid = *iid;
-            /* interface will always be present, so
-                * idl_iface_by_uuid can't return NULL */
-            //memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
-            //*pp = p;
-            //status = dcerpc_pipe_auth(ctx, pp, p->binding, ndr_table_by_uuid(iid), ctx->dcom->credentials->credentials, ctx->lp_ctx);
-            //ox->rem_unknown->vtable->RemRelease(ox->rem_unknown, ctx, 0, NULL);
-            //status = dcerpc_auth3(p, ctx);
-                //status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
-            //ox->pipe = *pp;
-            //status = dcerpc_bind_auth_none(p, ndr_table_by_uuid(iid));
-                //status = dcerpc_alter_context(p, ctx, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
-             //   status = dcerpc_alter_pipe_context(p, ctx, ndr_table_by_uuid(iid));
-            // status = NT_STATUS_OK;
-            //DEBUG(0, ("auth status %x\n", NT_STATUS_V(status)));
-            struct dcom_object_handle *oh;
-            oh = object_exporter_update_handle(ctx, ox, obj, iid, p->context_id);
-            if (oh) {
-                DEBUG(0, ("dcom_get_pipe_impl interface will always be present %p\n", oh));
-                *h = oh->handle;
-                status = dcerpc_alter_pipe_context(p, p, iid, oh->context_id);
-            } else {
-                status = NT_STATUS_NO_MEMORY;
-            }
-        }
-        else {
-            status = NT_STATUS_OK;
-            *h = p->binding_handle;
-        }
+		if (!GUID_equal(&p->syntax.uuid, iid)) {
+			//ox->pipe->syntax.uuid = *iid;
+			/* interface will always be present, so
+					* idl_iface_by_uuid can't return NULL */
+			//memset(&p->conn->security_state.tmp_auth_info, 0, sizeof(p->conn->security_state.tmp_auth_info));
+			//*pp = p;
+			//status = dcerpc_pipe_auth(ctx, pp, p->binding, ndr_table_by_uuid(iid), ctx->dcom->credentials->credentials, ctx->lp_ctx);
+			//ox->rem_unknown->vtable->RemRelease(ox->rem_unknown, ctx, 0, NULL);
+			//status = dcerpc_auth3(p, ctx);
+					//status = dcerpc_secondary_context(p, pp, ndr_table_by_uuid(iid));
+			//ox->pipe = *pp;
+			//status = dcerpc_bind_auth_none(p, ndr_table_by_uuid(iid));
+					//status = dcerpc_alter_context(p, ctx, &ndr_table_by_uuid(iid)->syntax_id, &p->transfer_syntax);
+				//   status = dcerpc_alter_pipe_context(p, ctx, ndr_table_by_uuid(iid));
+			// status = NT_STATUS_OK;
+			//DEBUG(0, ("auth status %x\n", NT_STATUS_V(status)));
+			struct dcom_object_handle *oh;
+			oh = object_exporter_update_handle(ctx, ox, obj, iid, p->context_id);
+			if (oh) {
+					*h = oh->handle;
+					DEBUG(0, ("dcom_binding_handle interface will always be present pipe:%p handle:%p\n", p, *h));
+					status = dcerpc_alter_pipe_context(p, p, iid, oh->context_id);
+			} else {
+					status = NT_STATUS_NO_MEMORY;
+			}
+		}
+		else {
+			status = NT_STATUS_OK;
+			*h = p->binding_handle;
+		}
+		DEBUG(0, ("dcom_binding_handle always is present pipe:%p handle:%p\n", p, *h));
 		return status;
 	}
 
