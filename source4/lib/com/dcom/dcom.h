@@ -93,6 +93,7 @@ struct dcom_object_exporter *object_exporter_by_oxid(struct com_context *ctx, ui
 struct dcom_object_exporter *object_exporter_by_ip(struct com_context *ctx, struct IUnknown *ip);
 struct dcom_object_handle *object_exporter_get_handle(struct dcom_object_exporter *ox, struct OBJREF* obj, struct GUID* iid);
 struct dcom_object_handle *object_exporter_update_handle(struct com_context *ctx, struct dcom_object_exporter *ox, struct OBJREF* obj, struct GUID* iid, uint32_t context_id);
+struct dcom_object_handle *object_exporter_renew_handle(struct com_context *ctx, struct dcom_object_exporter *ox, struct OBJREF* obj, struct GUID* iid, struct dcerpc_pipe *p);
 
 HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const char *server, int num_ifaces, struct GUID *iid, struct IUnknown ***ip, HRESULT *results);
 WERROR dcom_get_class_object(struct com_context *ctx, struct GUID *clsid, const char *server, struct GUID *iid, struct IUnknown **ip);

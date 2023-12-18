@@ -12,10 +12,10 @@ bld.SAMBA_SUBSYSTEM('WMI',
 	)
 
 
-bld.SAMBA_BINARY('wmic',
-	source='tools/wmic.c',
-	deps='popt samba-util WMI CMDLINE_S4 cmdline dcerpc ndr ndr-samba4'
-	)
+# bld.SAMBA_BINARY('wmic',
+# 	source='tools/wmic.c',
+# 	deps='popt samba-util WMI CMDLINE_S4 cmdline dcerpc ndr ndr-samba4'
+# 	)
 
 
 bld.SAMBA_BINARY('wmis',

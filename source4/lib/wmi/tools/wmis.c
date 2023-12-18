@@ -393,8 +393,9 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32_t *ret_code)
 {
 	struct IWbemClassObject *wco = NULL;
-	struct IWbemClassObject *inc, *outc, *in;
+	struct IWbemClassObject *inc = NULL, *outc = NULL, *in = NULL;
 	struct IWbemClassObject *out = NULL;
+	struct IWbemCallResult *res = NULL;
 	WERROR result;
 	union CIMVAR v;
 	TALLOC_CTX *ctx;
@@ -413,6 +414,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
     (void)outc;
     (void)in;
     (void)out;
+    (void)res;
     (void)v;
 
 	result = IWbemClassObject_GetMethod(wco, ctx, "Create", 0, &inc, &outc);
@@ -424,10 +426,21 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	v.v_string = cmdline;
 	result = IWbemClassObject_Put(in, ctx, "CommandLine", 0, &v, 0);
 	WERR_CHECK("IWbemClassObject_Put(CommandLine).");
-	print_IWbemClassObject(stdout, in, 0);
+	v.v_string = "c:\\";
+	result = IWbemClassObject_Put(in, ctx, "CurrentDirectory", 0, &v, 0);
+	WERR_CHECK("IWbemClassObject_Put(CurrentDirectory).");
+	//print_IWbemClassObject(stdout, in, 0);
 	methodName.data = "Create";
-	result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, in, &out,
-					  NULL);
+	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, in, &out,
+	//  				  NULL);
+	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, 0x35ea, in, 0x2416, NULL,
+	// 				  NULL);
+	result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
+		, NULL, 0xff, in, NULL, NULL);
+	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
+	// 	, NULL, 0x35ea, in, NULL, NULL);
+	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
+	// , NULL, in, NULL, NULL);
 	WERR_CHECK("IWbemServices_ExecMethod.");
 
 	// if (ret_code) {
@@ -437,7 +450,7 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	// }
     goto error;
 error:
-	talloc_free(ctx);
+	//talloc_free(ctx);
 	return result;
 }
 
@@ -475,8 +488,8 @@ int main(int argc, char **argv)
 	WERR_CHECK("WBEM_ConnectServer.");
 
 	printf("1: Creating directory C:\\wmi_test_dir_tmp using method Win32_Process.Create\n");
-	//result = WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir_tmp", &cnt);
-	result = WBEM_RemoteExecute(pWS, "notepad.exe", &cnt);
+	result = WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir.tmp", &cnt);
+	//result = WBEM_RemoteExecute(pWS, "notepad.exe", &cnt);
 	//WERR_CHECK("WBEM_RemoteExecute.");
 	printf("2: ReturnCode: %d\n", cnt);
 

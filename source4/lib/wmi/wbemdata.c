@@ -193,6 +193,7 @@ static enum ndr_err_code marshal(TALLOC_CTX *mem_ctx, struct IUnknown *pv, struc
 
 	mp = (struct MInterfacePointer *)((char *)o - offsetof(struct MInterfacePointer, obj)); /* FIXME:high remove this Mumbo Jumbo */
 	wco = (struct WbemClassObject *)pv->object_data;
+
 	ndr = talloc_zero(mem_ctx, struct ndr_push);
 	ndr->flags = 0;
 	ndr->alloc_size = 1024;
@@ -212,15 +213,13 @@ static enum ndr_err_code marshal(TALLOC_CTX *mem_ctx, struct IUnknown *pv, struc
 	}
 	o->u_objref.u_custom.pData = talloc_realloc(mp, ndr->data, uint8_t, ndr->offset);
 	o->u_objref.u_custom.size = ndr->offset;
-	dump_hex("output: ", ndr->offset, o->u_objref.u_custom.pData);
-	mp->size = sizeof(struct OBJREF) - sizeof(union OBJREF_Types) + sizeof(struct u_custom) + o->u_objref.u_custom.size - 4;
+
+	mp->size = sizeof(struct OBJREF) - sizeof(union OBJREF_Types) + sizeof(struct u_custom) + o->u_objref.u_custom.size - 8;
 	if (DEBUGLVL(9)) {
 		NDR_PRINT_DEBUG(WbemClassObject, wco);
 	}
 	return NDR_ERR_SUCCESS;
 }
-
-extern enum ndr_err_code ndr_pull_OBJREF(struct ndr_pull *ndr, int ndr_flags, struct OBJREF *r);
 
 static enum ndr_err_code unmarshal(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct IUnknown **pv)
 {
@@ -248,8 +247,6 @@ static enum ndr_err_code unmarshal(TALLOC_CTX *mem_ctx, struct OBJREF *o, struct
 	}
 	wco = talloc_zero(*pv, struct WbemClassObject);
 	ndr->current_mem_ctx = wco;
-		// ndr_err = ndr_pull_OBJREF(ndr, NDR_SCALARS | NDR_BUFFERS, &oref);
-		// dcom_IUnknown_from_OBJREF(mem_ctx, pv, & oref);
 	ndr_err = ndr_pull_WbemClassObject(ndr, NDR_SCALARS | NDR_BUFFERS, wco);
 
 	if (NDR_ERR_CODE_IS_SUCCESS(ndr_err) && (DEBUGLVL(9))) {
@@ -4480,23 +4477,25 @@ enum ndr_err_code ndr_push_WbemInstance_priv(struct ndr_push *ndr, int ndr_flags
 		uint32_t ofs, vofs;
 
 		NDR_CHECK(ndr_push_uint8(ndr, NDR_SCALARS, r->instance->u1_0));
-
-                if (r->instance->__CLASS) {
-                        NDR_CHECK(ndr_push_relative_ptr1(ndr, r->instance->__CLASS));
-                } else {
-                        NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0xFFFFFFFF));
-                }
+		if (r->instance->__CLASS) {
+			NDR_CHECK(ndr_push_relative_ptr1(ndr, r->instance->__CLASS));
+		} else {
+			NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, 0xFFFFFFFF));
+		}
 
 		ofs = ndr->offset;
 		NDR_PUSH_NEED_BYTES(ndr, r->obj_class->data_size);
-
+		// NdTable
 		for (i = 0; i < r->obj_class->__PROPERTY_COUNT; ++i) {
+			//printf("[%d] %x -> %x\n", i, (int)r->instance->default_flags[i], (int)*(ndr->data + ndr->offset));
 			copy_bits(&r->instance->default_flags[i], 0, ndr->data + ndr->offset, 2*r->obj_class->properties[i].desc->nr, 2);
 		}
 		i = 0xFF;
 		copy_bits((uint8_t *)&i, 0, ndr->data + ndr->offset, 2*r->obj_class->__PROPERTY_COUNT, (8 - 2*r->obj_class->__PROPERTY_COUNT) % 7);
+		//printf("[] x -> %x\n", (int)*(ndr->data + ndr->offset));
+		*(ndr->data + ndr->offset) = 0x30;
 		vofs = ofs + ((r->obj_class->__PROPERTY_COUNT + 3) >> 2);
-
+		// ValueTable
 		for (i = 0; i < r->obj_class->__PROPERTY_COUNT; ++i) {
 			NDR_CHECK(ndr_push_set_switch_value(ndr, &r->instance->data[i], r->obj_class->properties[i].desc->cimtype & CIM_TYPEMASK));
 			ndr->offset = vofs + r->obj_class->properties[i].desc->offset;
@@ -4508,11 +4507,11 @@ enum ndr_err_code ndr_push_WbemInstance_priv(struct ndr_push *ndr, int ndr_flags
 		NDR_CHECK(ndr_push_uint8(ndr, NDR_SCALARS, r->instance->u3_1));
 	}
 	if (ndr_flags & NDR_BUFFERS) {
-                if (r->instance->__CLASS) {
-                        NDR_CHECK(ndr_push_relative_ptr2(ndr, r->instance->__CLASS));
-                        NDR_CHECK(ndr_push_CIMSTRING(ndr, NDR_SCALARS, &r->instance->__CLASS));
-                }
-                for (i = 0; i < r->obj_class->__PROPERTY_COUNT; ++i) {
+		if (r->instance->__CLASS) {
+				NDR_CHECK(ndr_push_relative_ptr2(ndr, r->instance->__CLASS));
+				NDR_CHECK(ndr_push_CIMSTRING(ndr, NDR_SCALARS, &r->instance->__CLASS));
+		}
+		for (i = 0; i < r->obj_class->__PROPERTY_COUNT; ++i) {
 			NDR_CHECK(ndr_push_CIMVAR(ndr, NDR_BUFFERS, &r->instance->data[i]));
 		}
 	}
@@ -4613,13 +4612,21 @@ enum ndr_err_code ndr_pull_WbemClassObject(struct ndr_pull *ndr, int ndr_flags, 
 		r->obj_class = talloc_zero(r, struct WbemClass);
 		r->obj_methods = talloc_zero(r, struct WbemMethods);
 		//
+		NDR_PULL_SET_MEM_CTX(ndr, r->sup_class, 0);
 		NDR_CHECK(ndr_pull_WbemClass(ndr, r->sup_class));
 		NDR_PULL_SET_MEM_CTX(ndr, r->sup_methods, 0);
 		NDR_CHECK(ndr_pull_WbemMethods(ndr, r->sup_methods));
 		//
+		NDR_PULL_SET_MEM_CTX(ndr, r->obj_class, 0);
 		NDR_CHECK(ndr_pull_WbemClass(ndr, r->obj_class));
 		NDR_PULL_SET_MEM_CTX(ndr, r->obj_methods, 0);
 		NDR_CHECK(ndr_pull_WbemMethods(ndr, r->obj_methods));
+	}
+	if (r->flags & WCF_INSTANCE) {
+		r->obj_class = talloc_zero(r, struct WbemClass);
+		//
+		NDR_PULL_SET_MEM_CTX(ndr, r->obj_class, 0);
+		NDR_CHECK(ndr_pull_WbemClass(ndr, r->obj_class));
 	}
 	// if (r->flags & WCF_DECORATIONS) {
 	// 	r->sup_class = talloc_zero(r, struct WbemClass);

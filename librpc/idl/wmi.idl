@@ -463,7 +463,8 @@ coclass WbemClassObject
         [in] BSTR strMethodName,
         [in] long lFlags,
         [in,unique] IWbemContext* pCtx,
-        [in,unique] IWbemClassObject* pInParams,
+        [in] long pad0,
+        [in] IWbemClassObject* pInParams,
         [in,out,unique] IWbemClassObject** ppOutParams,
         [in,out,unique] IWbemCallResult** ppCallResult
         );

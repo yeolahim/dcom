@@ -291,6 +291,7 @@ struct dcom_object_handle *object_exporter_get_handle(struct dcom_object_exporte
 {
 	struct dcom_object_handle *handle;
 	for (handle = ox->object_handles; handle; handle = handle->next) {
+			DEBUG(0, ("search:%p/%s for:%s\n", handle, GUID_string(NULL, &handle->iid), GUID_string(NULL, iid)));
 			if ((handle->oid == obj->u_objref.u_standard.std.oid) && GUID_equal(&handle->iid, iid)) {
 					return handle;
 			}
@@ -304,11 +305,28 @@ struct dcom_object_handle *object_exporter_update_handle(struct com_context *ctx
 	handle = object_exporter_get_handle(ox, obj, iid);
 	if (!handle) {
 		handle = talloc_zero(ctx, struct dcom_object_handle);
-		DLIST_ADD(ox->object_handles, handle);
 		handle->oid = obj->u_objref.u_standard.std.oid;
 		handle->iid = *iid;
 		handle->context_id = ++context_id;
 		handle->handle = dcerpc_pipe_binding_handle(ox->pipe, NULL, ndr_table_by_uuid(iid));
+		DLIST_ADD(ox->object_handles, handle);
+		DEBUG(0, ("add object handle:%p for:%s\n", handle, GUID_string(NULL, iid)));
+	}
+	return handle;
+}
+
+struct dcom_object_handle *object_exporter_renew_handle(struct com_context *ctx, struct dcom_object_exporter *ox, struct OBJREF* obj,  struct GUID* iid, struct dcerpc_pipe *p)
+{
+	struct dcom_object_handle *handle;
+	handle = object_exporter_get_handle(ox, obj, iid);
+	if (!handle) {
+		handle = talloc_zero(ctx, struct dcom_object_handle);
+		handle->oid = obj->u_objref.u_standard.std.oid;
+		handle->iid = *iid;
+		handle->context_id = p->context_id;
+		handle->handle = p->binding_handle;
+		DLIST_ADD(ox->object_handles, handle);
+		DEBUG(0, ("add object handle:%p for:%s\n", handle, GUID_string(NULL, iid)));
 	}
 	return handle;
 }
@@ -794,6 +812,7 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 					*h = oh->handle;
 					DEBUG(0, ("dcom_binding_handle interface will always be present pipe:%p handle:%p\n", p, *h));
 					status = dcerpc_alter_pipe_context(p, p, iid, oh->context_id);
+					p->binding_handle = oh->handle;
 			} else {
 					status = NT_STATUS_NO_MEMORY;
 			}
@@ -847,7 +866,8 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 	//DCOM_TODO: DEBUG(2, ("Successfully connected to OXID %llx\n", (long long)oxid));
 
 	*h = (ox->pipe = p)->binding_handle;
-    DEBUG(0, ("dcom_get_pipe_impl ok\n"));
+	object_exporter_renew_handle(ctx, ox, obj, iid, p);
+	DEBUG(0, ("dcom_get_pipe_impl ok\n"));
 	return NT_STATUS_OK;
 }
 
