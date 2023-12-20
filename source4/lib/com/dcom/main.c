@@ -291,7 +291,7 @@ struct dcom_object_handle *object_exporter_get_handle(struct dcom_object_exporte
 {
 	struct dcom_object_handle *handle;
 	for (handle = ox->object_handles; handle; handle = handle->next) {
-			DEBUG(0, ("search:%p/%s for:%s\n", handle, GUID_string(NULL, &handle->iid), GUID_string(NULL, iid)));
+			//DEBUG(0, ("search:%p/%s for:%s\n", handle, GUID_string(NULL, &handle->iid), GUID_string(NULL, iid)));
 			if ((handle->oid == obj->u_objref.u_standard.std.oid) && GUID_equal(&handle->iid, iid)) {
 					return handle;
 			}
@@ -310,7 +310,7 @@ struct dcom_object_handle *object_exporter_update_handle(struct com_context *ctx
 		handle->context_id = ++context_id;
 		handle->handle = dcerpc_pipe_binding_handle(ox->pipe, NULL, ndr_table_by_uuid(iid));
 		DLIST_ADD(ox->object_handles, handle);
-		DEBUG(0, ("add object handle:%p for:%s\n", handle, GUID_string(NULL, iid)));
+		//DEBUG(0, ("add object handle:%p for:%s\n", handle, GUID_string(NULL, iid)));
 	}
 	return handle;
 }
@@ -326,7 +326,7 @@ struct dcom_object_handle *object_exporter_renew_handle(struct com_context *ctx,
 		handle->context_id = p->context_id;
 		handle->handle = p->binding_handle;
 		DLIST_ADD(ox->object_handles, handle);
-		DEBUG(0, ("add object handle:%p for:%s\n", handle, GUID_string(NULL, iid)));
+		//DEBUG(0, ("add object handle:%p for:%s\n", handle, GUID_string(NULL, iid)));
 	}
 	return handle;
 }
@@ -385,7 +385,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 	TALLOC_CTX *loc_ctx = NULL;
     WERROR result;
     struct ORPCTHIS this_object;
-    char* guid_str;
+    // char* guid_str;
 
 	status = dcom_connect_host(ctx, &p, server);
 	if (NT_STATUS_IS_ERR(status)) {
@@ -425,7 +425,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 	this_object.cid = GUID_random();
     this_object.extensions = NULL;
     //struct MInterfacePointer objectStorage;
-    printf("Running RemoteActivation\n"); //DCOM_TODO_REMOVE_ME
+    //printf("Running RemoteActivation\n"); //DCOM_TODO_REMOVE_ME
 
 	status = dcerpc_RemoteActivation(p->binding_handle, loc_ctx
         , this_object
@@ -623,31 +623,31 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
     //, '0x7', '0x0'
     // pad: , '0xfa', '0xfa', '0xfa', '0xfa', '0xfa', '0xfa']
 #endif
-    printf("Had run RemoteActivation %p\n", p->binding_handle); //DCOM_TODO_REMOVE_ME
+    //printf("Had run RemoteActivation %p\n", p->binding_handle); //DCOM_TODO_REMOVE_ME
 
 	if(NT_STATUS_IS_ERR(status)) {
 		DEBUG(1, ("Error while running RemoteActivation %s\n", nt_errstr(status)));
-        printf("Error 0 while running RemoteActivation %s\n", nt_errstr(status)); //DCOM_TODO_REMOVE_ME
+        //printf("Error 0 while running RemoteActivation %s\n", nt_errstr(status)); //DCOM_TODO_REMOVE_ME
 		hr = HRES_ERROR(W_ERROR_V(ntstatus_to_werror(status)));
 		goto end;
 	}
 
 	if(!W_ERROR_IS_OK(result)) {
 		hr = HRES_ERROR(W_ERROR_V(result));
-        printf("Error 1 while running RemoteActivation 0x%d\n", W_ERROR_V(result)); //DCOM_TODO_REMOVE_ME
+        //printf("Error 1 while running RemoteActivation 0x%d\n", W_ERROR_V(result)); //DCOM_TODO_REMOVE_ME
 		goto end;
 	}
 
 	if(!HRES_IS_OK(hr)) {
-        printf("Error 2 while running RemoteActivation 0x%x\n", HRES_ERROR_V(hr)); //DCOM_TODO_REMOVE_ME
+        //printf("Error 2 while running RemoteActivation 0x%x\n", HRES_ERROR_V(hr)); //DCOM_TODO_REMOVE_ME
 		goto end;
 	}
     // talloc_report_full(pds->stringbindings, stdout);
     // printf("pds %p\n", pds);
     // printf("pds.stringbindings %p\n", pds->stringbindings);
 	m = object_exporter_update_oxid(ctx, oxid, pds);
-    guid_str = GUID_string(NULL, iid);
-    DEBUG(0, ("dcom_create_object ox->pipe ok %p->%p %s %lx\n", (void*)m, (void*)p, guid_str, oxid));
+    //guid_str = GUID_string(NULL, iid);
+    //DEBUG(0, ("dcom_create_object ox->pipe ok %p->%p %s %lx\n", (void*)m, (void*)p, guid_str, oxid));
     // printf("bindings %p\n", m->bindings);
     // printf("bindings.stringbindings %p\n", m->bindings->stringbindings);
     // talloc_report_full(pds->stringbindings, stdout);
@@ -671,7 +671,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 	}
 	if (!m->rem_unknown) {
 		if (!ru_template) {
-			DEBUG(0,("dcom_create_object: Cannot Create IRemUnknown - template interface not available\n"));
+			//DEBUG(0,("dcom_create_object: Cannot Create IRemUnknown - template interface not available\n"));
 			hr = HRES_ERROR(W_ERROR_V(WERR_GEN_FAILURE));
 		}
 		m->rem_unknown = talloc_zero(m, struct IRemUnknown);
@@ -681,7 +681,7 @@ HRESULT dcom_create_object(struct com_context *ctx, struct GUID *clsid, const ch
 		GUID_from_string(COM_IREMUNKNOWN_UUID, &m->rem_unknown->obj.iid);
 		m->rem_unknown->obj.u_objref.u_standard.std.ipid = ipidRemUnknown;
 		m->rem_unknown->vtable = (struct IRemUnknown_vtable *)dcom_proxy_vtable_by_iid(&m->rem_unknown->obj.iid);
-        DEBUG(0, ("%s:%d rem_unknown vtable %p\n", __FILE__, __LINE__, m->rem_unknown->vtable));
+        //DEBUG(0, ("%s:%d rem_unknown vtable %p\n", __FILE__, __LINE__, m->rem_unknown->vtable));
 		/* TODO:avg copy stringbindigs?? */
 	}
     // talloc_report_full(pds->stringbindings, stdout);
@@ -771,15 +771,15 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 
 	ox = object_exporter_by_oxid(ctx, obj->u_objref.u_standard.std.oxid);
 	if (!ox) {
-		DEBUG(0, ("dcom_get_pipe: OXID not found\n"));
+		//DEBUG(0, ("dcom_get_pipe: OXID not found\n"));
 		return NT_STATUS_NOT_SUPPORTED;
 	}
 	guid_str = GUID_string(NULL, iid);
 	p = ox->pipe;
-	DEBUG(0, ("dcom_binding_handle ox->pipe ok ox:%p pipe:%p iid:%s oxid:%lx\n", (void*)ox, (void*)p, guid_str, ox->oxid));
+	//DEBUG(0, ("dcom_binding_handle ox->pipe ok ox:%p pipe:%p iid:%s oxid:%lx\n", (void*)ox, (void*)p, guid_str, ox->oxid));
 	table = ndr_table_by_uuid(iid);
 	if (table == NULL) {
-		DEBUG(0,(__location__": dcom_get_pipe - unrecognized interface{%s}\n", guid_str));
+		//DEBUG(0,(__location__": dcom_get_pipe - unrecognized interface{%s}\n", guid_str));
 		talloc_free(guid_str);
 		return NT_STATUS_NOT_SUPPORTED;
 	}
@@ -810,7 +810,7 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 			oh = object_exporter_update_handle(ctx, ox, obj, iid, p->context_id);
 			if (oh) {
 					*h = oh->handle;
-					DEBUG(0, ("dcom_binding_handle interface will always be present pipe:%p handle:%p\n", p, *h));
+					//DEBUG(0, ("dcom_binding_handle interface will always be present pipe:%p handle:%p\n", p, *h));
 					status = dcerpc_alter_pipe_context(p, p, iid, oh->context_id);
 					p->binding_handle = oh->handle;
 			} else {
@@ -821,7 +821,7 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 			status = NT_STATUS_OK;
 			*h = p->binding_handle;
 		}
-		DEBUG(0, ("dcom_binding_handle always is present pipe:%p handle:%p\n", p, *h));
+		//DEBUG(0, ("dcom_binding_handle always is present pipe:%p handle:%p\n", p, *h));
 		return status;
 	}
 
@@ -830,7 +830,7 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 	/* To avoid delays whe connecting nonroutable bindings we 1st check binding starting with hostname */
 	/* FIX:low create concurrent connections to all bindings, fastest wins - Win2k and newer does this way???? */
 	isimilar = find_similar_binding(ox->bindings->stringbindings, ox->host);
-	DEBUG(0, (__location__": dcom_get_pipe: host=%s, similar=%s\n", ox->host, ox->bindings->stringbindings[isimilar] ? ox->bindings->stringbindings[isimilar]->NetworkAddr : "None"));
+	//DEBUG(0, (__location__": dcom_get_pipe: host=%s, similar=%s\n", ox->host, ox->bindings->stringbindings[isimilar] ? ox->bindings->stringbindings[isimilar]->NetworkAddr : "None"));
 	j = isimilar - 1;
 	for (i = 0; ox->bindings->stringbindings[i]; ++i) {
 		if (!ox->bindings->stringbindings[++j]) j = 0;
@@ -867,7 +867,7 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 
 	*h = (ox->pipe = p)->binding_handle;
 	object_exporter_renew_handle(ctx, ox, obj, iid, p);
-	DEBUG(0, ("dcom_get_pipe_impl ok\n"));
+	//DEBUG(0, ("dcom_get_pipe_impl ok\n"));
 	return NT_STATUS_OK;
 }
 
@@ -933,7 +933,7 @@ WERROR dcom_IUnknown_from_OBJREF(struct com_context *ctx, struct IUnknown **_p, 
 			DEBUG(0, ("Unable to find proxy class for interface with IID %s\n", GUID_string(ctx, &o->iid)));
 			return W_ERROR(NDR_ERR_INVALID_POINTER);
 		}
-        printf("Release for interface with IID %s\n", GUID_string(ctx, &o->iid));
+        //printf("Release for interface with IID %s\n", GUID_string(ctx, &o->iid));
 		p->vtable->Release = dcom_release;
 
 		ox = object_exporter_by_oxid(ctx, o->u_objref.u_standard.std.oxid);

@@ -132,17 +132,18 @@ $inouts
 		next unless (has_property($a, "in"));
 		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
 			if (has_property($a, "out")) {
-                $res .="\tr.in.$a->{NAME} = &$a->{NAME}_mi;\n";
-                $res .= "\tif ($a->{NAME} && *$a->{NAME}) {\n";
-                 $res .="\t\t$a->{NAME}_mi = talloc_zero(mem_ctx, struct MInterfacePointer);\n";
-				$res .= "\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &$a->{NAME}_mi->obj, (struct IUnknown*)(*$a->{NAME})));\n";
-                $res .= "\t}\n";
+                $res .="\tif ($a->{NAME}) {\n";
+                $res .="\t\tif (*$a->{NAME}) {\n";
+                $res .="\t\t\tr.in.$a->{NAME} = &$a->{NAME}_mi;\n";
+                $res .="\t\t\t$a->{NAME}_mi = talloc_zero(mem_ctx, struct MInterfacePointer);\n";
+				$res .="\t\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &$a->{NAME}_mi->obj, (struct IUnknown*)(*$a->{NAME})));\n";
+                $res .="\t\t}\n";
+				$res .="\t}\n";
 			} else {
-                $res .="\tr.in.$a->{NAME} = NULL;\n";
-                $res .= "\tif ($a->{NAME}) {\n";
-                $res .="\t\tr.in.$a->{NAME} = talloc_zero(mem_ctx, struct MInterfacePointer);\n";
+                $res .="\tr.in.$a->{NAME} = talloc_zero(mem_ctx, struct MInterfacePointer);\n";
+                $res .="\tif ($a->{NAME}) {\n";
 				$res .="\t\tWERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &r.in.$a->{NAME}->obj, (struct IUnknown*)$a->{NAME}));\n";
-                $res .= "\t}\n";
+                $res .="\t}\n";
 			}
 		} else {
 			if (has_property($a, "string")) {
@@ -176,7 +177,9 @@ $inouts
 		next unless (has_property($a, "out"));
 
 		if (Parse::Pidl::Typelist::typeIs($a->{TYPE}, "INTERFACE")) {
-			$res .="\tWERROR_CHECK(dcom_IUnknown_from_MIP(d->ctx, (struct IUnknown**)$a->{NAME}, *r.out.$a->{NAME}));\n";
+			$res .="\tif (r.out.$a->{NAME}) {\n";
+			$res .="\t\tWERROR_CHECK(dcom_IUnknown_from_MIP(d->ctx, (struct IUnknown**)$a->{NAME}, *r.out.$a->{NAME}));\n";
+			$res .="\t}\n";
 		} else {
 			$res .= "\t*$a->{NAME} = *r.out.$a->{NAME};\n";
 		}

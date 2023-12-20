@@ -326,7 +326,7 @@ coclass WbemClassObject
 	WERROR GetObject(
 		[in] BSTR strObjectPath,
 		[in] long lFlags,
-		[in, unique] IWbemContext* pCtx,
+		[in] IWbemContext* pCtx,
 		[out, in, unique] IWbemClassObject** ppObject,
 		[out, in, unique] IWbemCallResult** ppCallResult
 		);
@@ -462,11 +462,10 @@ coclass WbemClassObject
         [in] BSTR strObjectPath,
         [in] BSTR strMethodName,
         [in] long lFlags,
-        [in,unique] IWbemContext* pCtx,
-        [in] long pad0,
+        [in] IWbemContext* pCtx,
         [in] IWbemClassObject* pInParams,
-        [in,out,unique] IWbemClassObject** ppOutParams,
-        [in,out,unique] IWbemCallResult** ppCallResult
+        [out, in, unique] IWbemClassObject** ppOutParams,
+        [out, in, unique] IWbemCallResult** ppCallResult
         );
 
 	WERROR ExecMethodAsync(
@@ -583,7 +582,7 @@ coclass WbemClassObject
 		[in,unique,string,charset(UTF16)] uint16 *wszNetworkResource,
 		[in,unique,string,charset(UTF16)] uint16 *wszPreferredLocale,
 		[in]   long lFlags,
-		[in,unique]   IWbemContext* pCtx,
+		[in]   IWbemContext* pCtx,
 		[out,ref]  IWbemServices** ppNamespace
 		);
 

@@ -100,12 +100,12 @@ WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, char *nsp
         talloc_free(mqi);
 
         result = IWbemLevel1Login_NTLMLogin(pL, ctx, ((uint16_t*)nspace), locale, flags, wbem_ctx, services);
-        DEBUG(0, ("IWbemServices: %p\n", *services));
+        //DEBUG(0, ("IWbemServices: %p\n", *services));
         //result = IWbemLevel1Login_NTLMLogin(pL, ctx, 0, locale, flags, wbem_ctx, services);
         WERR_CHECK("Login to remote object.");
 	//DCOM_TODO:    result = W_ERROR(IUnknown_Release((struct IUnknown *)pL, ctx));
         WERR_CHECK("Release Login.");
-        DEBUG(0, ("Done: %p\n",*services));
+        //DEBUG(0, ("Done: %p\n",*services));
 end:
         return result;
 }

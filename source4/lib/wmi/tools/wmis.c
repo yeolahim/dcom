@@ -113,12 +113,15 @@ static void parse_args(int argc, const char *argv[],
     poptFreeContext(pc);
 }
 
+bool verbose = false;
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
                             DEBUG(0, ("%s:%d ERROR: %s -> %x\n", __FILE__, __LINE__, msg, W_ERROR_V(result))); \
                             goto error; \
                         } else { \
-                            DEBUG(0, ("%s:%d OK   : %s\n", __FILE__, __LINE__, msg)); \
-                        }
+							if (verbose) {\
+								DEBUG(0, ("%s:%d OK   : %s\n", __FILE__, __LINE__, msg)); \
+							}\
+						}
 /*
 WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const char *nspace, const char *user, const char *password, const char *locale, uint32_t flags, const char *authority, struct IWbemContext* wbem_ctx, struct IWbemServices** services)
 {
@@ -433,16 +436,19 @@ WERROR WBEM_RemoteExecute(struct IWbemServices *pWS, const char *cmdline, uint32
 	methodName.data = "Create";
 	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, in, &out,
 	//  				  NULL);
-	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0, NULL, 0x35ea, in, 0x2416, NULL,
-	// 				  NULL);
-	result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
-		, NULL, 0xff, in, NULL, NULL);
+	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0,
+	//	NULL, 0x35ea, in, 0x2416, NULL, NULL);
+	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
+	// 	, NULL, 0xff, in, &out, NULL);
 	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
 	// 	, NULL, 0x35ea, in, NULL, NULL);
-	// result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
-	// , NULL, in, NULL, NULL);
+	//printf("\ntry: %p, %p\n", out, res);
+	result = IWbemServices_ExecMethod(pWS, ctx, objectPath, methodName, 0
+		, NULL, in, &out, &res); //,
+	// result = IWbemServices_ExecMethodAsync(pWS, ctx, objectPath, methodName, 0
+	// 	, NULL, 0xff, in, NULL);
 	WERR_CHECK("IWbemServices_ExecMethod.");
-
+	//printf("\nOK: %p, %p\n", out, res);
 	// if (ret_code) {
 	// 	result = IWbemClassObject_Get(out->object_data, ctx, "ReturnValue", 0, &v, 0, 0);
 	// 	WERR_CHECK("IWbemClassObject_Get(ReturnValue).");
@@ -486,12 +492,11 @@ int main(int argc, char **argv)
 
 	result = WBEM_ConnectServer(ctx, args.hostname, ns, 0, 0, 0, 0, 0, &pWS);
 	WERR_CHECK("WBEM_ConnectServer.");
-
-	printf("1: Creating directory C:\\wmi_test_dir_tmp using method Win32_Process.Create\n");
-	result = WBEM_RemoteExecute(pWS, "cmd.exe /C mkdir C:\\wmi_test_dir.tmp", &cnt);
+	//printf("1: Creating directory C:\\wmi_test_dir_tmp using method Win32_Process.Create\n");
+	result = WBEM_RemoteExecute(pWS, args.query, &cnt);
 	//result = WBEM_RemoteExecute(pWS, "notepad.exe", &cnt);
 	//WERR_CHECK("WBEM_RemoteExecute.");
-	printf("2: ReturnCode: %d\n", cnt);
+	//printf("2: ReturnCode: %d\n", cnt);
 
 	// printf("3: Monitoring directory C:\\wmi_test_dir_tmp. Please create/delete files in that directory to see notifications, after 4 events program quits.\n");
 	// query.data = "SELECT * FROM __InstanceOperationEvent WITHIN 1 WHERE Targetinstance ISA 'CIM_DirectoryContainsFile' and TargetInstance.GroupComponent= 'Win32_Directory.Name=\"C:\\\\\\\\wmi_test_dir_tmp\"'";
@@ -508,8 +513,12 @@ int main(int argc, char **argv)
 	// }
 
 error:
-	status = werror_to_ntstatus(result);
-	fprintf(stderr, "NTSTATUS: %s - %s\n", nt_errstr(status), get_friendly_nt_error_msg(status));
-	//talloc_free(ctx);
-	return 1;
+	if (!W_ERROR_IS_OK(result)) {
+		status = werror_to_ntstatus(result);
+		if (verbose)
+			fprintf(stderr, "NTSTATUS: %s - %s\n", nt_errstr(status), get_friendly_nt_error_msg(status));
+		//talloc_free(ctx);
+		return 1;
+	}
+	return 0;
 }
