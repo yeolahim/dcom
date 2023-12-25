@@ -885,11 +885,12 @@ static WERROR dcom_proxy_IWbemServices_ExecQuery(struct IWbemServices *d, TALLOC
 	r.in.strQueryLanguage = strQueryLanguage;
 	r.in.strQuery = strQuery;
 	r.in.lFlags = lFlags;
-	r.in.pCtx = talloc_zero(mem_ctx, struct MInterfacePointer);
+	r.in.pCtx = NULL;
 	if (pCtx) {
+		r.in.pCtx = talloc_zero(mem_ctx, struct MInterfacePointer);
 		WERROR_CHECK(dcom_OBJREF_from_IUnknown(mem_ctx, &r.in.pCtx->obj, (struct IUnknown*)pCtx));
 	}
-
+	r.out.ORPCthat = talloc_zero(mem_ctx, struct ORPCTHAT);
 #if 0
 	if (h->conn->flags & DCERPC_DEBUG_PRINT_IN) {
 		NDR_PRINT_IN_DEBUG(ExecQuery, &r);
@@ -1244,6 +1245,7 @@ static WERROR dcom_proxy_IEnumWbemClassObject_Reset(struct IEnumWbemClassObject 
 	r.in.ORPCthis.version.MinorVersion = COM_MINOR_VERSION;
     r.in.ORPCthis.cid = d->obj.iid;
 
+	r.out.ORPCthat = talloc_zero(mem_ctx, struct ORPCTHAT);
 #if 0
 	if (h->conn->flags & DCERPC_DEBUG_PRINT_IN) {
 		NDR_PRINT_IN_DEBUG(Reset, &r);
@@ -1269,6 +1271,7 @@ static WERROR dcom_proxy_IEnumWbemClassObject_IEnumWbemClassObject_Next(struct I
 	struct dcerpc_binding_handle *h;
 	NTSTATUS status = dcom_binding_handle(d->ctx, &d->obj, &d->vtable->iid, &h);
 	struct IEnumWbemClassObject_Next r;
+	struct MInterfacePointer* apObjects_mi = NULL;
 
 	// struct rpc_request *req;
 
@@ -1283,6 +1286,8 @@ static WERROR dcom_proxy_IEnumWbemClassObject_IEnumWbemClassObject_Next(struct I
 	r.in.lTimeout = lTimeout;
 	r.in.uCount = uCount;
 
+	r.out.ORPCthat = talloc_zero(mem_ctx, struct ORPCTHAT);
+	r.out.apObjects = &apObjects_mi;
 #if 0
 	if (h->conn->flags & DCERPC_DEBUG_PRINT_IN) {
 		NDR_PRINT_IN_DEBUG(IEnumWbemClassObject_Next, &r);

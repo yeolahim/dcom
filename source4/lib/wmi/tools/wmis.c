@@ -122,43 +122,7 @@ bool verbose = false;
 								DEBUG(0, ("%s:%d OK   : %s\n", __FILE__, __LINE__, msg)); \
 							}\
 						}
-/*
-WERROR WBEM_ConnectServer(struct com_context *ctx, const char *server, const char *nspace, const char *user, const char *password, const char *locale, uint32_t flags, const char *authority, struct IWbemContext* wbem_ctx, struct IWbemServices** services)
-{
-	struct GUID clsid;
-	struct GUID iid;
-	WERROR result;
-	HRESULT coresult;
-	struct IUnknown **mqi;
-	struct IWbemLevel1Login *pL;
 
-	if (user) {
-		char *cred;
-		struct cli_credentials *cc;
-
-		cred = talloc_asprintf(NULL, "%s%%%s", user, password);
-		cc = cli_credentials_init(ctx);
-		cli_credentials_set_conf(cc);
-		cli_credentials_parse_string(cc, cred, CRED_SPECIFIED);
-		dcom_set_server_credentials(ctx, server, cc);
-		talloc_free(cred);
-	}
-
-	GUID_from_string(CLSID_WBEMLEVEL1LOGIN, &clsid);
-	GUID_from_string(COM_IWBEMLEVEL1LOGIN_UUID, &iid);
-	result = dcom_create_object(ctx, &clsid, server, 1, &iid, &mqi, &coresult);
-	WERR_CHECK("dcom_create_object.");
-	result = coresult;
-	WERR_CHECK("Create remote WMI object.");
-	pL = (struct IWbemLevel1Login *)mqi[0];
-	talloc_free(mqi);
-
-	result = IWbemLevel1Login_NTLMLogin(pL, ctx, nspace, locale, flags, wbem_ctx, services);
-	WERR_CHECK("Login to remote object.");
-error:
-	return result;
-}
-*/
 void print_CIMVALUE(FILE* out, enum CIMTYPE_ENUMERATION cimtype, const union CIMVAR* value, int level);
 void print_CIMTYPE(FILE* out, enum CIMTYPE_ENUMERATION cimtype, int level);
 void print_WbemQualifier(FILE* out, const struct WbemQualifier *c, int level);
@@ -487,7 +451,7 @@ int main(int argc, char **argv)
     smb_init_locale();
     parse_args(argc, const_argv, frame, &args);
     lp_ctx = samba_cmdline_get_lp_ctx();
-    //samba_cmdline_burn(argc, argv);
+    samba_cmdline_burn(argc, argv);
 	wmi_init(&ctx, args.credentials, lp_ctx);
 
 	result = WBEM_ConnectServer(ctx, args.hostname, ns, 0, 0, 0, 0, 0, &pWS);

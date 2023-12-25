@@ -439,11 +439,11 @@ void duplicate_CIMVAR(TALLOC_CTX *mem_ctx, const union CIMVAR *src, union CIMVAR
 }
 
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
-			      DEBUG(1, ("ERROR: %s - %s\n", msg, wmi_errstr(result))); \
-	return result; \
-			  } else { \
-			      DEBUG(1, ("OK   : %s\n", msg)); \
-			  }
+		DEBUG(1, ("ERROR: %s - %s\n", msg, wmi_errstr(result))); \
+		return result; \
+	} else { \
+		DEBUG(1, ("OK   : %s\n", msg)); \
+	}
 
 struct pair_guid_ptr {
 	struct GUID guid;

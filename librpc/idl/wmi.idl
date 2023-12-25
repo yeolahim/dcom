@@ -430,7 +430,7 @@ coclass WbemClassObject
         [in] BSTR strQueryLanguage,
         [in] BSTR strQuery,
         [in]  long lFlags,
-        [in,unique]  IWbemContext* pCtx,
+        [in, unique]  IWbemContext* pCtx,
         [out] IEnumWbemClassObject** ppEnum
         );
 

@@ -81,6 +81,7 @@ static void parse_args(int argc, const char *argv[],
         POPT_TABLEEND
     };
     ZERO_STRUCTP(pmyargs);
+
     ok = samba_cmdline_init(mem_ctx,
         SAMBA_CMDLINE_CONFIG_CLIENT,
         false /* require_smbconf */);
@@ -134,13 +135,15 @@ static void parse_args(int argc, const char *argv[],
     poptFreeContext(pc);
 }
 
-
+bool verbose = true;
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
-			    DEBUG(0, ("ERROR: %s\n", msg)); \
-			    goto error; \
-			} else { \
-			    DEBUG(1, ("OK   : %s\n", msg)); \
-			}
+		DEBUG(0, ("%s:%d ERROR: %s -> %x\n", __FILE__, __LINE__, msg, W_ERROR_V(result))); \
+			goto error; \
+		} else { \
+			if (verbose) {\
+				DEBUG(0, ("%s:%d OK   : %s\n", __FILE__, __LINE__, msg)); \
+			}\
+		}
 
 #define RETURN_CVAR_ARRAY_STR(fmt, arr) {\
 	uint32_t i;\
@@ -198,13 +201,13 @@ char *string_CIMVAR(TALLOC_CTX *mem_ctx, union CIMVAR *v, enum CIMTYPE_ENUMERATI
 
 #undef RETURN_CVAR_ARRAY_STR
 
-char ns[] = "root\\cimv2";
+char ns[] = "//./root/cimv2";
 int main(int argc, char **argv)
 {
-    TALLOC_CTX *frame = talloc_stackframe();
-	const char **const_argv = discard_const_p(const char *, argv);
+    TALLOC_CTX *frame = NULL;
+	const char **const_argv = NULL;
     struct program_args args = {};
-	uint32_t cnt = 5, ret;
+	uint32_t cnt = 1, ret;
 	char *class_name = NULL;
 	WERROR result;
 	NTSTATUS status;
@@ -214,9 +217,19 @@ int main(int argc, char **argv)
 	struct com_context *ctx = NULL;
     struct loadparm_context *lp_ctx = NULL;
     TALLOC_CTX *mem_ctx = NULL;
-    struct IWbemClassObject *co[cnt];
+    struct IWbemClassObject *co = NULL;
 
+    (void)co;
+    (void)pEnum;
+    (void)mem_ctx;
+    (void)query;
+    (void)queryLanguage;
     (void)class_name;
+    (void)ret;
+
+	frame = talloc_init("root");
+	const_argv = discard_const_p(const char *, argv);
+
     smb_init_locale();
     parse_args(argc, const_argv, frame, &args);
     lp_ctx = samba_cmdline_get_lp_ctx();
@@ -230,18 +243,19 @@ int main(int argc, char **argv)
 
 	queryLanguage.data = "WQL";
 	query.data = args.query;
-	result = IWbemServices_ExecQuery(pWS, ctx, queryLanguage, query, WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_ENSURE_LOCATABLE, NULL, &pEnum);
+	result = IWbemServices_ExecQuery(pWS, ctx, queryLanguage, query
+		, WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_ENSURE_LOCATABLE | WBEM_FLAG_FORWARD_ONLY, NULL, &pEnum);
 	WERR_CHECK("WMI query execute.");
 
 	IEnumWbemClassObject_Reset(pEnum, ctx);
 	WERR_CHECK("Reset result of WMI query.");
-    mem_ctx = talloc_new(0);
+	mem_ctx = talloc_new(0);
 	do {
 		uint32_t i, j;
-        (void)i;
-        (void)j;
-
-		result = IEnumWbemClassObject_SmartNext(pEnum, mem_ctx, 0xFFFFFFFF, cnt, co, &ret);
+		(void)i;
+		(void)j;
+        result = IEnumWbemClassObject_IEnumWbemClassObject_Next(pEnum, mem_ctx, 0xFFFFFFFF, 1, &co, &ret);
+		//result = IEnumWbemClassObject_SmartNext(pEnum, mem_ctx, 0xFFFFFFFF, cnt, co, &ret);
 		/* WERR_INVALID_FUNCTION is OK, it means only that there is less returned objects than requested */
 		if (!W_ERROR_EQUAL(result, WERR_INVALID_FUNCTION)) {
 			WERR_CHECK("Retrieve result data.");
@@ -250,29 +264,31 @@ int main(int argc, char **argv)
 		}
 		if (!ret) break;
 
-        // DCOM_TODO:
-		// for (i = 0; i < ret; ++i) {
-		// 	if (!class_name || strcmp(co[i]->obj_class->__CLASS, class_name)) {
-		// 		if (class_name) talloc_free(class_name);
-		// 		class_name = talloc_strdup(ctx, co[i]->obj_class->__CLASS);
-		// 		printf("CLASS: %s\n", class_name);
-		// 		for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j)
-		// 			printf("%s%s", j?"|":"", co[i]->obj_class->properties[j].property.name);
-		// 		printf("\n");
-		// 	}
-		// 	for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j) {
-		// 		char *s;
-		// 		s = string_CIMVAR(ctx, &co[i]->instance->data[j], co[i]->obj_class->properties[j].property.desc->cimtype & CIM_TYPEMASK);
-		// 		printf("%s%s", j?"|":"", s);
-		// 	}
-		// 	printf("\n");
-		// }
+    //     // DCOM_TODO:
+	// 	// for (i = 0; i < ret; ++i) {
+	// 	// 	if (!class_name || strcmp(co[i]->obj_class->__CLASS, class_name)) {
+	// 	// 		if (class_name) talloc_free(class_name);
+	// 	// 		class_name = talloc_strdup(ctx, co[i]->obj_class->__CLASS);
+	// 	// 		printf("CLASS: %s\n", class_name);
+	// 	// 		for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j)
+	// 	// 			printf("%s%s", j?"|":"", co[i]->obj_class->properties[j].property.name);
+	// 	// 		printf("\n");
+	// 	// 	}
+	// 	// 	for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j) {
+	// 	// 		char *s;
+	// 	// 		s = string_CIMVAR(ctx, &co[i]->instance->data[j], co[i]->obj_class->properties[j].property.desc->cimtype & CIM_TYPEMASK);
+	// 	// 		printf("%s%s", j?"|":"", s);
+	// 	// 	}
+	// 	// 	printf("\n");
+	// 	// }
 	} while (ret == cnt);
-	talloc_free(ctx);
-	return 0;
 error:
-	status = werror_to_ntstatus(result);
-	fprintf(stderr, "NTSTATUS: %s - %s\n", nt_errstr(status), get_friendly_nt_error_msg(status));
-	talloc_free(ctx);
-	return 1;
+	if (!W_ERROR_IS_OK(result)) {
+		status = werror_to_ntstatus(result);
+		if (verbose)
+			fprintf(stderr, "NTSTATUS: %s - %s\n", nt_errstr(status), get_friendly_nt_error_msg(status));
+		//talloc_free(ctx);
+		return 1;
+	}
+	return 0;
 }
