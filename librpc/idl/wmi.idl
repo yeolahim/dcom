@@ -288,9 +288,9 @@ coclass WbemClassObject
 
     typedef [public,bitmap8bit] bitmap
     {
-		WCF_DECORATIONS = 1,
+		WCF_DECORATIONS = 4,
 		WCF_INSTANCE = 2,
-		WCF_CLASS = 4,
+		WCF_CLASS = 1,
 		WCF_CLASS_PART_INTERNAL = 8
 	/*	WCF_CLASS_PART_SHARED = 0x104 */
 	} WCO_FLAGS;

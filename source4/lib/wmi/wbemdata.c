@@ -133,6 +133,7 @@ enum ndr_err_code ndr_push_WbemMethods(struct ndr_push *ndr, int ndr_flags, cons
 enum ndr_err_code ndr_pull_WbemMethods(struct ndr_pull *ndr, struct WbemMethods *r);
 void ndr_print_WbemMethods(struct ndr_print *ndr, const char *name, const struct WbemMethods *r);
 
+enum ndr_err_code ndr_pull_WbemInstance(struct ndr_pull *ndr, struct WbemClassObject *r);
 enum ndr_err_code ndr_push_WbemInstance_priv(struct ndr_push *ndr, int ndr_flags, const struct WbemClassObject *r);
 enum ndr_err_code ndr_pull_WbemInstance_priv(struct ndr_pull *ndr, int ndr_flags, const struct WbemClassObject *r);
 void ndr_print_WbemInstance_priv(struct ndr_print *ndr, const char *name, const struct WbemClassObject *r);
@@ -4518,6 +4519,67 @@ enum ndr_err_code ndr_push_WbemInstance_priv(struct ndr_push *ndr, int ndr_flags
 	return NDR_ERR_SUCCESS;
 }
 
+enum ndr_err_code ndr_pull_WbemInstance(struct ndr_pull *ndr, struct WbemClassObject *r)
+{
+	int i;
+
+	if (!r->obj_class) {
+        DEBUG(1,("ndr_pull_WbemInstance_priv: There is no class for given instance\n"));
+		return NDR_ERR_INVALID_POINTER;
+	}
+        ndr_set_flags(&ndr->flags, LIBNDR_FLAG_NOALIGN);
+	//if (ndr_flags & NDR_SCALARS)
+	{
+		uint32_t ofs, vofs;
+		uint32_t _ptr___CLASS;
+
+		NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->instance->u1_0));
+
+                NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr___CLASS));
+                if (_ptr___CLASS != 0xFFFFFFFF) {
+                        NDR_PULL_ALLOC(ndr, r->instance->__CLASS);
+                        NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->instance->__CLASS, _ptr___CLASS));
+                } else {
+                        r->instance->__CLASS = NULL;
+                }
+
+		ofs = ndr->offset;
+		NDR_PULL_NEED_BYTES(ndr, r->obj_class->data_size);
+                NDR_PULL_ALLOC_N(ndr, r->instance->default_flags, r->obj_class->__PROPERTY_COUNT);
+		for (i = 0; i < r->obj_class->__PROPERTY_COUNT; ++i) {
+			r->instance->default_flags[i] = 0;
+			copy_bits(ndr->data + ndr->offset, 2*r->obj_class->properties[i].desc->nr, &r->instance->default_flags[i], 0, 2);
+		}
+		vofs = ofs + ((r->obj_class->__PROPERTY_COUNT + 3) >> 2);
+
+                NDR_PULL_ALLOC_N(ndr, r->instance->data, r->obj_class->__PROPERTY_COUNT);
+		memset(r->instance->data, 0, sizeof(*r->instance->data) * r->obj_class->__PROPERTY_COUNT);
+                for (i = 0; i < r->obj_class->__PROPERTY_COUNT; ++i) {
+			NDR_CHECK(ndr_pull_set_switch_value(ndr, &r->instance->data[i], r->obj_class->properties[i].desc->cimtype & CIM_TYPEMASK));
+			ndr->offset = vofs + r->obj_class->properties[i].desc->offset;
+			NDR_CHECK(ndr_pull_CIMVAR(ndr, NDR_SCALARS, &r->instance->data[i]));
+		}
+		ndr->offset = ofs + r->obj_class->data_size;
+
+		NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &r->instance->u2_4));
+		NDR_CHECK(ndr_pull_uint8(ndr, NDR_SCALARS, &r->instance->u3_1));
+	}
+	//if (ndr_flags & NDR_BUFFERS)
+	{
+                if (r->instance->__CLASS) {
+                        struct ndr_pull_save _relative_save;
+                        ndr_pull_save(ndr, &_relative_save);
+                        NDR_CHECK(ndr_pull_relative_ptr2(ndr, r->instance->__CLASS));
+                        NDR_CHECK(ndr_pull_CIMSTRING(ndr, NDR_SCALARS, &r->instance->__CLASS));
+                        ndr_pull_restore(ndr, &_relative_save);
+                }
+                for (i = 0; i < r->obj_class->__PROPERTY_COUNT; ++i) {
+			NDR_CHECK(ndr_pull_CIMVAR(ndr, NDR_BUFFERS, &r->instance->data[i]));
+		}
+	}
+	return NDR_ERR_SUCCESS;
+}
+
 enum ndr_err_code ndr_pull_WbemInstance_priv(struct ndr_pull *ndr, int ndr_flags, const struct WbemClassObject *r)
 {
 	int i;
@@ -4624,9 +4686,12 @@ enum ndr_err_code ndr_pull_WbemClassObject(struct ndr_pull *ndr, int ndr_flags, 
 	}
 	if (r->flags & WCF_INSTANCE) {
 		r->obj_class = talloc_zero(r, struct WbemClass);
+		r->instance = talloc_zero(r, struct WbemInstance);
 		//
 		NDR_PULL_SET_MEM_CTX(ndr, r->obj_class, 0);
 		NDR_CHECK(ndr_pull_WbemClass(ndr, r->obj_class));
+		NDR_PULL_SET_MEM_CTX(ndr, r->instance, 0);
+		NDR_CHECK(ndr_pull_WbemInstance(ndr, r));
 	}
 	// if (r->flags & WCF_DECORATIONS) {
 	// 	r->sup_class = talloc_zero(r, struct WbemClass);

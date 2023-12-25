@@ -159,43 +159,56 @@ bool verbose = true;
 	return talloc_asprintf_append(r, ")");\
 }
 
+#define RETURN_CVAR_ARRAY_STR2(fmt, TYPE, arr) {\
+	uint32_t i;\
+	char *r;\
+\
+	if (!arr) {\
+	        return talloc_strdup(mem_ctx, "NULL");\
+	}\
+	r = talloc_strdup(mem_ctx, "(");\
+	for (i = 0; i < arr->count; ++i) {\
+		r = talloc_asprintf_append(r, fmt "%s", (TYPE)arr->item[i], (i+1 == arr->count)?"":",");\
+	}\
+	return talloc_asprintf_append(r, ")");\
+}
+
 char *string_CIMVAR(TALLOC_CTX *mem_ctx, union CIMVAR *v, enum CIMTYPE_ENUMERATION cimtype);
 char *string_CIMVAR(TALLOC_CTX *mem_ctx, union CIMVAR *v, enum CIMTYPE_ENUMERATION cimtype)
 {
-    //DCOM_TODO: ................
-	// switch (cimtype) {
-	// case CIM_SINT8: return talloc_asprintf(mem_ctx, "%d", v->v_sint8);
-	// case CIM_UINT8: return talloc_asprintf(mem_ctx, "%u", v->v_uint8);
-	// case CIM_SINT16: return talloc_asprintf(mem_ctx, "%d", v->v_sint16);
-	// case CIM_UINT16: return talloc_asprintf(mem_ctx, "%u", v->v_uint16);
-	// case CIM_SINT32: return talloc_asprintf(mem_ctx, "%d", v->v_sint32);
-	// case CIM_UINT32: return talloc_asprintf(mem_ctx, "%u", v->v_uint32);
-	// case CIM_SINT64: return talloc_asprintf(mem_ctx, "%lld", v->v_sint64);
-	// case CIM_UINT64: return talloc_asprintf(mem_ctx, "%llu", v->v_sint64);
-	// case CIM_REAL32: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint32);
-	// case CIM_REAL64: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint64);
-	// case CIM_BOOLEAN: return talloc_asprintf(mem_ctx, "%s", v->v_boolean?"True":"False");
-	// case CIM_STRING:
-	// case CIM_DATETIME:
-	// case CIM_REFERENCE: return talloc_asprintf(mem_ctx, "%s", v->v_string);
-	// case CIM_CHAR16: return talloc_asprintf(mem_ctx, "Unsupported");
-	// case CIM_OBJECT: return talloc_asprintf(mem_ctx, "Unsupported");
-	// case CIM_ARR_SINT8: RETURN_CVAR_ARRAY_STR("%d", v->a_sint8);
-	// case CIM_ARR_UINT8: RETURN_CVAR_ARRAY_STR("%u", v->a_uint8);
-	// case CIM_ARR_SINT16: RETURN_CVAR_ARRAY_STR("%d", v->a_sint16);
-	// case CIM_ARR_UINT16: RETURN_CVAR_ARRAY_STR("%u", v->a_uint16);
-	// case CIM_ARR_SINT32: RETURN_CVAR_ARRAY_STR("%d", v->a_sint32);
-	// case CIM_ARR_UINT32: RETURN_CVAR_ARRAY_STR("%u", v->a_uint32);
-	// case CIM_ARR_SINT64: RETURN_CVAR_ARRAY_STR("%lld", v->a_sint64);
-	// case CIM_ARR_UINT64: RETURN_CVAR_ARRAY_STR("%llu", v->a_uint64);
-	// case CIM_ARR_REAL32: RETURN_CVAR_ARRAY_STR("%f", v->a_real32);
-	// case CIM_ARR_REAL64: RETURN_CVAR_ARRAY_STR("%f", v->a_real64);
-	// case CIM_ARR_BOOLEAN: RETURN_CVAR_ARRAY_STR("%d", v->a_boolean);
-	// case CIM_ARR_STRING: RETURN_CVAR_ARRAY_STR("%s", v->a_string);
-	// case CIM_ARR_DATETIME: RETURN_CVAR_ARRAY_STR("%s", v->a_datetime);
-	// case CIM_ARR_REFERENCE: RETURN_CVAR_ARRAY_STR("%s", v->a_reference);
-	// default: return talloc_asprintf(mem_ctx, "Unsupported");
-	// }
+	switch (cimtype) {
+	case CIM_SINT8: return talloc_asprintf(mem_ctx, "%d", v->v_sint8);
+	case CIM_UINT8: return talloc_asprintf(mem_ctx, "%u", v->v_uint8);
+	case CIM_SINT16: return talloc_asprintf(mem_ctx, "%d", v->v_sint16);
+	case CIM_UINT16: return talloc_asprintf(mem_ctx, "%u", v->v_uint16);
+	case CIM_SINT32: return talloc_asprintf(mem_ctx, "%d", v->v_sint32);
+	case CIM_UINT32: return talloc_asprintf(mem_ctx, "%u", v->v_uint32);
+	case CIM_SINT64: return talloc_asprintf(mem_ctx, "%ld", v->v_sint64);
+	case CIM_UINT64: return talloc_asprintf(mem_ctx, "%lu", v->v_sint64);
+	case CIM_REAL32: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint32);
+	case CIM_REAL64: return talloc_asprintf(mem_ctx, "%f", (double)v->v_uint64);
+	case CIM_BOOLEAN: return talloc_asprintf(mem_ctx, "%s", v->v_boolean?"True":"False");
+	case CIM_STRING:
+	case CIM_DATETIME:
+	case CIM_REFERENCE: return talloc_asprintf(mem_ctx, "%s", v->v_string);
+	case CIM_CHAR16: return talloc_asprintf(mem_ctx, "Unsupported");
+	case CIM_OBJECT: return talloc_asprintf(mem_ctx, "Unsupported");
+	case CIM_ARR_SINT8: RETURN_CVAR_ARRAY_STR("%d", v->a_sint8);
+	case CIM_ARR_UINT8: RETURN_CVAR_ARRAY_STR("%u", v->a_uint8);
+	case CIM_ARR_SINT16: RETURN_CVAR_ARRAY_STR("%d", v->a_sint16);
+	case CIM_ARR_UINT16: RETURN_CVAR_ARRAY_STR("%u", v->a_uint16);
+	case CIM_ARR_SINT32: RETURN_CVAR_ARRAY_STR("%d", v->a_sint32);
+	case CIM_ARR_UINT32: RETURN_CVAR_ARRAY_STR("%u", v->a_uint32);
+	case CIM_ARR_SINT64: RETURN_CVAR_ARRAY_STR("%ld", v->a_sint64);
+	case CIM_ARR_UINT64: RETURN_CVAR_ARRAY_STR("%lu", v->a_uint64);
+	case CIM_ARR_REAL32: RETURN_CVAR_ARRAY_STR2("%f", double, v->a_real32);
+	case CIM_ARR_REAL64: RETURN_CVAR_ARRAY_STR2("%f", double, v->a_real64);
+	case CIM_ARR_BOOLEAN: RETURN_CVAR_ARRAY_STR("%d", v->a_boolean);
+	case CIM_ARR_STRING: RETURN_CVAR_ARRAY_STR("%s", v->a_string);
+	case CIM_ARR_DATETIME: RETURN_CVAR_ARRAY_STR("%s", v->a_datetime);
+	case CIM_ARR_REFERENCE: RETURN_CVAR_ARRAY_STR("%s", v->a_reference);
+	default: return talloc_asprintf(mem_ctx, "Unsupported");
+	}
     return NULL;
 }
 
@@ -254,7 +267,7 @@ int main(int argc, char **argv)
 		uint32_t i, j;
 		(void)i;
 		(void)j;
-        result = IEnumWbemClassObject_IEnumWbemClassObject_Next(pEnum, mem_ctx, 0xFFFFFFFF, 1, &co, &ret);
+		result = IEnumWbemClassObject_IEnumWbemClassObject_Next(pEnum, mem_ctx, 0xFFFFFFFF, 1, &co, &ret);
 		//result = IEnumWbemClassObject_SmartNext(pEnum, mem_ctx, 0xFFFFFFFF, cnt, co, &ret);
 		/* WERR_INVALID_FUNCTION is OK, it means only that there is less returned objects than requested */
 		if (!W_ERROR_EQUAL(result, WERR_INVALID_FUNCTION)) {
@@ -262,25 +275,28 @@ int main(int argc, char **argv)
 		} else {
 			DEBUG(1, ("OK   : Retrieved less objects than requested (it is normal).\n"));
 		}
+        result = W_ERROR(0);
 		if (!ret) break;
 
-    //     // DCOM_TODO:
-	// 	// for (i = 0; i < ret; ++i) {
-	// 	// 	if (!class_name || strcmp(co[i]->obj_class->__CLASS, class_name)) {
-	// 	// 		if (class_name) talloc_free(class_name);
-	// 	// 		class_name = talloc_strdup(ctx, co[i]->obj_class->__CLASS);
-	// 	// 		printf("CLASS: %s\n", class_name);
-	// 	// 		for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j)
-	// 	// 			printf("%s%s", j?"|":"", co[i]->obj_class->properties[j].property.name);
-	// 	// 		printf("\n");
-	// 	// 	}
-	// 	// 	for (j = 0; j < co[i]->obj_class->__PROPERTY_COUNT; ++j) {
-	// 	// 		char *s;
-	// 	// 		s = string_CIMVAR(ctx, &co[i]->instance->data[j], co[i]->obj_class->properties[j].property.desc->cimtype & CIM_TYPEMASK);
-	// 	// 		printf("%s%s", j?"|":"", s);
-	// 	// 	}
-	// 	// 	printf("\n");
-	// 	// }
+		for (i = 0; i < ret; ++i) {
+            struct WbemClassObject *r = (struct WbemClassObject*)co->object_data;
+			if (!class_name || strcmp(r->obj_class->__CLASS, class_name)) {
+				if (class_name) talloc_free(class_name);
+				class_name = talloc_strdup(ctx, r->obj_class->__CLASS);
+				printf("CLASS: %s\n", class_name);
+				for (j = 0; j < r->obj_class->__PROPERTY_COUNT; ++j)
+					printf("%s%s", j?"|":"", r->obj_class->properties[j].name);
+				printf("\n");
+			}
+			if (r->instance) {
+				for (j = 0; j < r->obj_class->__PROPERTY_COUNT; ++j) {
+					char *s;
+					s = string_CIMVAR(ctx, &r->instance->data[j], r->obj_class->properties[j].desc->cimtype & CIM_TYPEMASK);
+					printf("%s%s", j?"|":"", s);
+				}
+			}
+			printf("\n");
+		}
 	} while (ret == cnt);
 error:
 	if (!W_ERROR_IS_OK(result)) {

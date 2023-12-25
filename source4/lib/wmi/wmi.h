@@ -116,9 +116,9 @@ union CIMVAR {
 #define WBEM_FLAVOR_AMENDED ( 0x80 )
 
 /* bitmap WCO_FLAGS */
-#define WCF_DECORATIONS ( 1 )
+#define WCF_DECORATIONS ( 4 )
 #define WCF_INSTANCE ( 2 )
-#define WCF_CLASS ( 4 )
+#define WCF_CLASS ( 1 )
 #define WCF_CLASS_PART_INTERNAL ( 8 )
 
 struct WbemQualifier {

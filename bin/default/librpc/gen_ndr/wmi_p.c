@@ -1303,7 +1303,7 @@ static WERROR dcom_proxy_IEnumWbemClassObject_IEnumWbemClassObject_Next(struct I
 	}
 #endif
 
-	if (r.out.apObjects) {
+	if (*puReturned && r.out.apObjects) {
 		WERROR_CHECK(dcom_IUnknown_from_MIP(d->ctx, (struct IUnknown**)apObjects, *r.out.apObjects));
 	}
 	*puReturned = *r.out.puReturned;
