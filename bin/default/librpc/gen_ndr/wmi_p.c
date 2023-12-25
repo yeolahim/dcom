@@ -1271,7 +1271,6 @@ static WERROR dcom_proxy_IEnumWbemClassObject_IEnumWbemClassObject_Next(struct I
 	struct dcerpc_binding_handle *h;
 	NTSTATUS status = dcom_binding_handle(d->ctx, &d->obj, &d->vtable->iid, &h);
 	struct IEnumWbemClassObject_Next r;
-	struct MInterfacePointer* apObjects_mi = NULL;
 
 	// struct rpc_request *req;
 
@@ -1287,7 +1286,8 @@ static WERROR dcom_proxy_IEnumWbemClassObject_IEnumWbemClassObject_Next(struct I
 	r.in.uCount = uCount;
 
 	r.out.ORPCthat = talloc_zero(mem_ctx, struct ORPCTHAT);
-	r.out.apObjects = &apObjects_mi;
+	r.out.apObjects = talloc_array_ptrtype(mem_ctx, r.out.apObjects, uCount);
+	r.out.puReturned = puReturned;
 #if 0
 	if (h->conn->flags & DCERPC_DEBUG_PRINT_IN) {
 		NDR_PRINT_IN_DEBUG(IEnumWbemClassObject_Next, &r);
