@@ -1913,38 +1913,44 @@ enum ndr_err_code ndr_pull_CIMVAR2(struct ndr_pull *ndr, struct ndr_pull *heap, 
 			}
 		break; }
 
-		// case CIM_ARR_REAL32: {
-		// 	uint32_t _ptr_a_real32;
-		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_real32));
-		// 	if (_ptr_a_real32) {
-		// 		NDR_PULL_ALLOC(ndr, r->a_real32);
-		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_real32, _ptr_a_real32));
-		// 	} else {
-		// 		r->a_real32 = NULL;
-		// 	}
-		// break; }
+		case CIM_ARR_REAL32: {
+			uint32_t _ptr_a_real32;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_a_real32));
+			if (_ptr_a_real32) {
+				NDR_PULL_ALLOC(ndr, r->a_real32);
+				swap_off(&heap->offset, &_ptr_a_real32);
+				NDR_CHECK(ndr_pull_arr_uint32(heap, NDR_SCALARS, r->a_real32));
+				swap_off(&heap->offset, &_ptr_a_real32);
+			} else {
+				r->a_real32 = NULL;
+			}
+		break; }
 
-		// case CIM_ARR_REAL64: {
-		// 	uint32_t _ptr_a_real64;
-		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_real64));
-		// 	if (_ptr_a_real64) {
-		// 		NDR_PULL_ALLOC(ndr, r->a_real64);
-		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_real64, _ptr_a_real64));
-		// 	} else {
-		// 		r->a_real64 = NULL;
-		// 	}
-		// break; }
+		case CIM_ARR_REAL64: {
+			uint32_t _ptr_a_real64;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_a_real64));
+			if (_ptr_a_real64) {
+				NDR_PULL_ALLOC(ndr, r->a_real64);
+				swap_off(&heap->offset, &_ptr_a_real64);
+				NDR_CHECK(ndr_pull_arr_udlong(heap, NDR_SCALARS, r->a_real64));
+				swap_off(&heap->offset, &_ptr_a_real64);
+			} else {
+				r->a_real64 = NULL;
+			}
+		break; }
 
-		// case CIM_ARR_BOOLEAN: {
-		// 	uint32_t _ptr_a_boolean;
-		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_boolean));
-		// 	if (_ptr_a_boolean) {
-		// 		NDR_PULL_ALLOC(ndr, r->a_boolean);
-		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_boolean, _ptr_a_boolean));
-		// 	} else {
-		// 		r->a_boolean = NULL;
-		// 	}
-		// break; }
+		case CIM_ARR_BOOLEAN: {
+			uint32_t _ptr_a_boolean;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_a_boolean));
+			if (_ptr_a_boolean) {
+				NDR_PULL_ALLOC(ndr, r->a_boolean);
+				swap_off(&heap->offset, &_ptr_a_boolean);
+				NDR_CHECK(ndr_pull_arr_uint16(heap, NDR_SCALARS, r->a_boolean));
+				swap_off(&heap->offset, &_ptr_a_boolean);
+			} else {
+				r->a_boolean = NULL;
+			}
+		break; }
 
 		case CIM_ARR_STRING: {
 			uint32_t _ptr_a_string;
@@ -1959,27 +1965,31 @@ enum ndr_err_code ndr_pull_CIMVAR2(struct ndr_pull *ndr, struct ndr_pull *heap, 
 			}
 		break; }
 
-		// case CIM_ARR_DATETIME: {
-		// 	uint32_t _ptr_a_datetime;
-		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_datetime));
-		// 	if (_ptr_a_datetime) {
-		// 		NDR_PULL_ALLOC(ndr, r->a_datetime);
-		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_datetime, _ptr_a_datetime));
-		// 	} else {
-		// 		r->a_datetime = NULL;
-		// 	}
-		// break; }
+		case CIM_ARR_DATETIME: {
+			uint32_t _ptr_a_datetime;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_a_datetime));
+			if (_ptr_a_datetime) {
+				NDR_PULL_ALLOC(ndr, r->a_datetime);
+				swap_off(&heap->offset, &_ptr_a_datetime);
+				NDR_CHECK(ndr_pull_arr_CIMSTRING2(heap, r->a_datetime));
+				swap_off(&heap->offset, &_ptr_a_datetime);
+			} else {
+				r->a_datetime = NULL;
+			}
+		break; }
 
-		// case CIM_ARR_REFERENCE: {
-		// 	uint32_t _ptr_a_reference;
-		// 	NDR_CHECK(ndr_pull_generic_ptr(ndr, &_ptr_a_reference));
-		// 	if (_ptr_a_reference) {
-		// 		NDR_PULL_ALLOC(ndr, r->a_reference);
-		// 		NDR_CHECK(ndr_pull_relative_ptr1(ndr, r->a_reference, _ptr_a_reference));
-		// 	} else {
-		// 		r->a_reference = NULL;
-		// 	}
-		// break; }
+		case CIM_ARR_REFERENCE: {
+			uint32_t _ptr_a_reference;
+			NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &_ptr_a_reference));
+			if (_ptr_a_reference) {
+				NDR_PULL_ALLOC(ndr, r->a_reference);
+				swap_off(&heap->offset, &_ptr_a_reference);
+				NDR_CHECK(ndr_pull_arr_CIMSTRING2(heap, r->a_reference));
+				swap_off(&heap->offset, &_ptr_a_reference);
+			} else {
+				r->a_reference = NULL;
+			}
+		break; }
 
 		// case CIM_ARR_OBJECT: {
 		// 	uint32_t _ptr_a_object;
