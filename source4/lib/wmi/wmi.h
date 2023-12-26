@@ -178,10 +178,11 @@ struct WbemMethods {
 }/* [flag(LIBNDR_FLAG_NOALIGN),public] */;
 
 struct WbemInstance {
-	uint8_t u1_0;
+	uint8_t flags;
 	CIMSTRING __CLASS;/* [relative,string,charset(UTF16)] */
 	uint8_t *default_flags;/* [unique] */
 	union CIMVAR *data;/* [unique] */
+	struct WbemQualifiers qualifiers;
 	uint32_t u2_4;
 	uint8_t u3_1;
 }/* [public,flag(LIBNDR_FLAG_NOALIGN),nopush,nopull,noprint] */;

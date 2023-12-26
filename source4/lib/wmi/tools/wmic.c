@@ -135,7 +135,7 @@ static void parse_args(int argc, const char *argv[],
     poptFreeContext(pc);
 }
 
-bool verbose = true;
+bool verbose = false;
 #define WERR_CHECK(msg) if (!W_ERROR_IS_OK(result)) { \
 		DEBUG(0, ("%s:%d ERROR: %s -> %x\n", __FILE__, __LINE__, msg, W_ERROR_V(result))); \
 			goto error; \
@@ -283,12 +283,13 @@ int main(int argc, char **argv)
 			if (!class_name || strcmp(r->obj_class->__CLASS, class_name)) {
 				if (class_name) talloc_free(class_name);
 				class_name = talloc_strdup(ctx, r->obj_class->__CLASS);
-				printf("CLASS: %s\n", class_name);
+				//printf("CLASS: %s\n", class_name);
 				for (j = 0; j < r->obj_class->__PROPERTY_COUNT; ++j)
 					printf("%s%s", j?"|":"", r->obj_class->properties[j].name);
 				printf("\n");
 			}
 			if (r->instance) {
+				//printf("CLASS: %s\n", r->instance->__CLASS);
 				for (j = 0; j < r->obj_class->__PROPERTY_COUNT; ++j) {
 					char *s;
 					s = string_CIMVAR(ctx, &r->instance->data[j], r->obj_class->properties[j].desc->cimtype & CIM_TYPEMASK);
