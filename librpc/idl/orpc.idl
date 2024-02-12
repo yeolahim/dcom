@@ -168,7 +168,7 @@ interface ObjectRpcBaseTypes
 	typedef struct
 	{
 		STDOBJREF std; /* standard objref */
-		STRINGARRAY saResAddr; /* resolver address */
+		DUALSTRINGARRAY saResAddr; /* resolver address */
 	} u_standard;
 
 	typedef struct

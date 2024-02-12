@@ -567,11 +567,11 @@ static enum ndr_err_code ndr_push_u_standard(struct ndr_push *ndr, int ndr_flags
 	if (ndr_flags & NDR_SCALARS) {
 		NDR_CHECK(ndr_push_align(ndr, 8));
 		NDR_CHECK(ndr_push_STDOBJREF(ndr, NDR_SCALARS, &r->std));
-		NDR_CHECK(ndr_push_STRINGARRAY(ndr, NDR_SCALARS, &r->saResAddr));
+		NDR_CHECK(ndr_push_DUALSTRINGARRAY(ndr, NDR_SCALARS, &r->saResAddr));
 		NDR_CHECK(ndr_push_trailer_align(ndr, 8));
 	}
 	if (ndr_flags & NDR_BUFFERS) {
-		NDR_CHECK(ndr_push_STRINGARRAY(ndr, NDR_BUFFERS, &r->saResAddr));
+		NDR_CHECK(ndr_push_DUALSTRINGARRAY(ndr, NDR_BUFFERS, &r->saResAddr));
 	}
 	return NDR_ERR_SUCCESS;
 }
@@ -582,11 +582,11 @@ static enum ndr_err_code ndr_pull_u_standard(struct ndr_pull *ndr, int ndr_flags
 	if (ndr_flags & NDR_SCALARS) {
 		NDR_CHECK(ndr_pull_align(ndr, 8));
 		NDR_CHECK(ndr_pull_STDOBJREF(ndr, NDR_SCALARS, &r->std));
-		NDR_CHECK(ndr_pull_STRINGARRAY(ndr, NDR_SCALARS, &r->saResAddr));
+		NDR_CHECK(ndr_pull_DUALSTRINGARRAY(ndr, NDR_SCALARS, &r->saResAddr));
 		NDR_CHECK(ndr_pull_trailer_align(ndr, 8));
 	}
 	if (ndr_flags & NDR_BUFFERS) {
-		NDR_CHECK(ndr_pull_STRINGARRAY(ndr, NDR_BUFFERS, &r->saResAddr));
+		NDR_CHECK(ndr_pull_DUALSTRINGARRAY(ndr, NDR_BUFFERS, &r->saResAddr));
 	}
 	return NDR_ERR_SUCCESS;
 }
@@ -597,7 +597,7 @@ _PUBLIC_ void ndr_print_u_standard(struct ndr_print *ndr, const char *name, cons
 	if (r == NULL) { ndr_print_null(ndr); return; }
 	ndr->depth++;
 	ndr_print_STDOBJREF(ndr, "std", &r->std);
-	ndr_print_STRINGARRAY(ndr, "saResAddr", &r->saResAddr);
+	ndr_print_DUALSTRINGARRAY(ndr, "saResAddr", &r->saResAddr);
 	ndr->depth--;
 }
 

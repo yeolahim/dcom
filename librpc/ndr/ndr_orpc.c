@@ -27,17 +27,17 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 {
 	uint16_t num_entries, security_offset;
 	uint16_t towerid;
-	uint32_t towernum = 0, conformant_size;
+	uint32_t towernum = 0;//, conformant_size;
 
 	if (!(ndr_flags & NDR_SCALARS)) {
 		return NDR_ERR_SUCCESS;
 	}
 
-	NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &conformant_size));
+	//NDR_CHECK(ndr_pull_uint32(ndr, NDR_SCALARS, &conformant_size));
 	NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &num_entries));
 	NDR_CHECK(ndr_pull_uint16(ndr, NDR_SCALARS, &security_offset));
 
-	ar->stringbindings = talloc_array(ar, struct STRINGBINDING *, 1);
+	ar->stringbindings = talloc_array(NULL, struct STRINGBINDING *, 1);
 	ar->stringbindings[0] = NULL;
 
 	do {
@@ -46,8 +46,8 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 
 		if (towerid > 0) {
 			ndr->offset -= 2; 
-			ar->stringbindings = talloc_realloc(ar, ar->stringbindings, struct STRINGBINDING *, towernum+2);
-			ar->stringbindings[towernum] = talloc(ar, struct STRINGBINDING);
+			ar->stringbindings = talloc_realloc(NULL, ar->stringbindings, struct STRINGBINDING *, towernum+2);
+			ar->stringbindings[towernum] = talloc(NULL, struct STRINGBINDING);
 			NDR_CHECK(ndr_pull_STRINGBINDING(ndr, ndr_flags, ar->stringbindings[towernum]));
 			towernum++;
 		}
@@ -56,7 +56,7 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 	ar->stringbindings[towernum] = NULL;
 	towernum = 0;
 
-	ar->securitybindings = talloc_array(ar, struct SECURITYBINDING *, 1);
+	ar->securitybindings = talloc_array(NULL, struct SECURITYBINDING *, 1);
 	ar->securitybindings[0] = NULL;
 
 	do {
@@ -65,8 +65,8 @@ enum ndr_err_code ndr_pull_DUALSTRINGARRAY(struct ndr_pull *ndr, int ndr_flags, 
 
 		if (towerid > 0) {
 			ndr->offset -= 2; 
-			ar->securitybindings = talloc_realloc(ar, ar->securitybindings, struct SECURITYBINDING *, towernum+2);
-			ar->securitybindings[towernum] = talloc(ar, struct SECURITYBINDING);
+			ar->securitybindings = talloc_realloc(NULL, ar->securitybindings, struct SECURITYBINDING *, towernum+2);
+			ar->securitybindings[towernum] = talloc(NULL, struct SECURITYBINDING);
 			NDR_CHECK(ndr_pull_SECURITYBINDING(ndr, ndr_flags, ar->securitybindings[towernum]));
 			towernum++;
 		}
