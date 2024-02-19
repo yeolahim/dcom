@@ -25,6 +25,17 @@
 #include "lib/cmdline/cmdline.h"
 #include "param/param.h"
 
+struct rpc_registry_context {
+	struct registry_context context;
+	struct dcerpc_pipe *pipe;
+	struct dcerpc_binding_handle *binding_handle;
+};
+
+bool fullpath = false;
+bool no_values = false;
+
+#define OPEN_MAX_TRY 3
+
 /**
  * Print a registry key recursively
  *
@@ -34,8 +45,7 @@
  * @param novals Whether values should not be printed
  */
 static void print_tree(unsigned int level, struct registry_key *p,
-		       const char *name,
-		       bool fullpath, bool novals)
+		       const char *name)
 {
 	struct registry_key *subkey;
 	const char *valuename, *keyname;
@@ -64,7 +74,7 @@ static void print_tree(unsigned int level, struct registry_key *p,
 		print_tree(level+1, subkey, (fullpath && strlen(name))?
                                                talloc_asprintf(mem_ctx, "%s\\%s",
                                                                name, keyname):
-                                               keyname, fullpath, novals);
+                                               keyname);
 		talloc_free(subkey);
 	}
 	talloc_free(mem_ctx);
@@ -74,7 +84,7 @@ static void print_tree(unsigned int level, struct registry_key *p,
 				  name, win_errstr(error)));
 	}
 
-	if (!novals) {
+	if (!no_values) {
 		mem_ctx = talloc_init("print_tree");
 		for(i = 0; W_ERROR_IS_OK(error = reg_key_get_value_by_index(
 			mem_ctx, p, i, &valuename, &valuetype, &valuedata));
@@ -92,9 +102,80 @@ static void print_tree(unsigned int level, struct registry_key *p,
 		}
 	}
 
-	mem_ctx = talloc_init("sec_desc");
-	if (!W_ERROR_IS_OK(reg_get_sec_desc(mem_ctx, p, &sec_desc))) {
-		DEBUG(0, ("Error getting security descriptor\n"));
+	// mem_ctx = talloc_init("sec_desc");
+	// if (!W_ERROR_IS_OK(reg_get_sec_desc(mem_ctx, p, &sec_desc))) {
+	// 	DEBUG(0, ("Error getting security descriptor\n"));
+	// }
+	// talloc_free(mem_ctx);
+}
+
+static bool print_path_value(TALLOC_CTX *mem_ctx, struct registry_key *start_key, const char* query, char* name) {
+	struct registry_key *subkey = NULL;
+	WERROR error;
+	uint32_t valuetype;
+	DATA_BLOB valuedata;
+	struct security_descriptor *sec_desc;
+	error = reg_key_get_value_by_name(mem_ctx, start_key, name, &valuetype, &valuedata);
+	if (!W_ERROR_IS_OK(error)) {
+		fprintf(stderr, "Can't open %s<%s>: %s\n", query, name, win_errstr(error));
+	} else {
+		printf("%s\n",  reg_val_description(mem_ctx,
+				name, valuetype, valuedata));
+		return true;
+	}
+	return false;
+}
+
+// recursive
+static void print_path_next(TALLOC_CTX *mem_ctx, struct registry_key *start_key, const char* query, char* path) {
+	char* end = NULL;
+	struct registry_key *subkey = NULL;
+	WERROR error;
+
+	end = strchr(path, '\\');
+	if (NULL != end) {
+		*end = 0;
+		error = reg_open_key(mem_ctx, start_key, path, &subkey);
+		if (!W_ERROR_IS_OK(error)) {
+			if (!print_path_value(mem_ctx, start_key, query, path))
+				fprintf(stderr, "Can't open %s<%s>: %s\n", query, path, win_errstr(error));
+		} else {
+			print_path_next(mem_ctx, subkey, query, end + 1);
+			talloc_free(subkey);
+		}
+	} else {
+		error = reg_open_key(mem_ctx, start_key, path, &subkey);
+		if (!W_ERROR_IS_OK(error)) {
+			if (!print_path_value(mem_ctx, start_key, query, path))
+				fprintf(stderr, "Can't open %s<%s>: %s\n", query, path, win_errstr(error));
+		} else {
+			print_tree(0, subkey, path);
+			talloc_free(subkey);
+		}
+	}
+}
+
+static void print_path_root(struct registry_context *h, const char* query) {
+	char* path = NULL;
+	char* begin = NULL;
+	char* end = NULL;
+	TALLOC_CTX *mem_ctx = NULL;
+	struct registry_key *start_key = NULL;
+	WERROR error;
+
+	mem_ctx = talloc_init("print_path");
+	path = talloc_strdup(mem_ctx, query);
+	begin = path;
+	end = strchr(path, '\\');
+
+	if (NULL != end) {
+		*end = 0;
+		error = reg_get_predefined_key_by_name(h, begin, &start_key);
+		if (!W_ERROR_IS_OK(error)) {
+			fprintf(stderr, "Can't open %s: %s\n", begin, win_errstr(error));
+		} else {
+			print_path_next(mem_ctx, start_key, query, end + 1);
+		}
 	}
 	talloc_free(mem_ctx);
 }
@@ -115,7 +196,7 @@ int main(int argc, char **argv)
 	struct loadparm_context *lp_ctx = NULL;
 	struct cli_credentials *creds = NULL;
 	WERROR error;
-	bool fullpath = false, no_values = false;
+	char *query = NULL;
 	struct poptOption long_options[] = {
 		POPT_AUTOHELP
 		{"file", 'F', POPT_ARG_STRING, &file, 0, "file path", NULL },
@@ -162,6 +243,7 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}
+	query = *discard_const_p(char *, poptGetArgs(pc));
 
 	poptFreeContext(pc);
 	samba_cmdline_burn(argc, argv);
@@ -171,7 +253,11 @@ int main(int argc, char **argv)
 	creds = samba_cmdline_get_creds();
 
 	if (remote != NULL) {
-		h = reg_common_open_remote(remote, ev_ctx, lp_ctx, creds);
+		for (int i = 0; i < OPEN_MAX_TRY; ++i) {
+			h = reg_common_open_remote(remote, ev_ctx, lp_ctx, creds);
+			if (h != NULL)
+				break;
+		}
 	} else if (file != NULL) {
 		start_key = reg_common_open_file(file, ev_ctx, lp_ctx, creds);
 	} else {
@@ -186,7 +272,10 @@ int main(int argc, char **argv)
 	error = WERR_OK;
 
 	if (start_key != NULL) {
-		print_tree(0, start_key, "", fullpath, no_values);
+		print_tree(0, start_key, "");
+	} else if (query != NULL) {
+		print_path_root(h, query);
+		TALLOC_FREE(h);
 	} else {
 		for(i = 0; reg_predefined_keys[i].handle; i++) {
 			error = reg_get_predefined_key(h,
@@ -199,11 +288,10 @@ int main(int argc, char **argv)
 				continue;
 			}
 			SMB_ASSERT(start_key != NULL);
-			print_tree(0, start_key, reg_predefined_keys[i].name,
-				   fullpath, no_values);
+			print_tree(0, start_key, reg_predefined_keys[i].name);
 		}
+		TALLOC_FREE(h);
 	}
-
 	TALLOC_FREE(mem_ctx);
 	return 0;
 }
