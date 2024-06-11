@@ -196,6 +196,7 @@ int main(int argc, char **argv)
 	struct loadparm_context *lp_ctx = NULL;
 	struct cli_credentials *creds = NULL;
 	WERROR error;
+	char **xquery = NULL;
 	char *query = NULL;
 	struct poptOption long_options[] = {
 		POPT_AUTOHELP
@@ -243,7 +244,12 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 	}
-	query = *discard_const_p(char *, poptGetArgs(pc));
+	xquery = discard_const_p(char *, poptGetArgs(pc));
+	if (NULL == xquery) {
+		poptPrintHelp(pc, stderr, 0);
+		exit(1);
+	}
+	query = *xquery;
 
 	poptFreeContext(pc);
 	samba_cmdline_burn(argc, argv);
