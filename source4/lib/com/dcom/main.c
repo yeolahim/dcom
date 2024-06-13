@@ -242,7 +242,7 @@ static NTSTATUS dcom_connect_host(struct com_context *ctx,
 	NTSTATUS status;
 	TALLOC_CTX *loc_ctx;
 
-	if (server == NULL) { 
+	if (server == NULL) {
 		return dcerpc_pipe_connect(ctx->event_ctx, p, "ncalrpc",
 								   &ndr_table_IRemoteActivation,
 								   dcom_get_server_credentials(ctx, NULL), ctx->event_ctx, ctx->lp_ctx);
@@ -830,13 +830,13 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 	/* To avoid delays whe connecting nonroutable bindings we 1st check binding starting with hostname */
 	/* FIX:low create concurrent connections to all bindings, fastest wins - Win2k and newer does this way???? */
 	isimilar = find_similar_binding(ox->bindings->stringbindings, ox->host);
-	//DEBUG(0, (__location__": dcom_get_pipe: host=%s, similar=%s\n", ox->host, ox->bindings->stringbindings[isimilar] ? ox->bindings->stringbindings[isimilar]->NetworkAddr : "None"));
+	DEBUG(9, (__location__": dcom_get_pipe: host=%s, similar=%s\n", ox->host, ox->bindings->stringbindings[isimilar] ? ox->bindings->stringbindings[isimilar]->NetworkAddr : "None"));
 	j = isimilar - 1;
 	for (i = 0; ox->bindings->stringbindings[i]; ++i) {
 		if (!ox->bindings->stringbindings[++j]) j = 0;
 		/* FIXME:LOW Use also other transports if possible */
 		if ((j != isimilar) && (ox->bindings->stringbindings[j]->wTowerId != EPM_PROTOCOL_TCP || !is_ip_binding(ox->bindings->stringbindings[j]->NetworkAddr))) {
-			DEBUG(9, ("dcom_get_pipe: Skipping stringbinding %24.24s\n", ox->bindings->stringbindings[j]->NetworkAddr));
+			DEBUG(9, ("dcom_get_pipe: Skipping stringbinding %24.24s %d\n", ox->bindings->stringbindings[j]->NetworkAddr, (int)ox->bindings->stringbindings[j]->wTowerId));
 			continue;
 		}
 		DEBUG(9, ("dcom_get_pipe: Trying stringbinding %s\n", ox->bindings->stringbindings[j]->NetworkAddr));
@@ -846,7 +846,7 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 			DEBUG(1, ("Error parsing string binding"));
 		} else {
 			/* FIXME:LOW Make flags more flexible */
-			binding->flags |= DCERPC_AUTH_NTLM | DCERPC_SIGN;
+			binding->flags |= DCERPC_AUTH_NTLM | DCERPC_AUTH_KRB5 | DCERPC_SIGN;
 			if (DEBUGLVL(11))
 				binding->flags |= DCERPC_DEBUG_PRINT_BOTH;
 			status = dcerpc_pipe_connect_b(ctx->event_ctx, &p, binding,

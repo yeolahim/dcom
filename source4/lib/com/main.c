@@ -21,6 +21,7 @@
 #include "includes.h"
 #include "../lib/util/dlinklist.h"
 #include "lib/com/com.h"
+#define TEVENT_DEPRECATED 1
 #include "lib/events/events.h"
 #include "librpc/gen_ndr/com_dcom.h"
 
@@ -29,6 +30,10 @@ WERROR com_init_ctx(struct com_context **ctx, struct loadparm_context *lp_ctx, s
 	*ctx = talloc(NULL, struct com_context);
 	if (event_ctx == NULL) {
 		event_ctx = samba_tevent_context_init(*ctx);
+		if (event_ctx) {
+			samba_tevent_set_debug(event_ctx, "dcom_tevent");
+			tevent_loop_allow_nesting(event_ctx);
+		}
 	}
 	(*ctx)->event_ctx = event_ctx;
     (*ctx)->lp_ctx = lp_ctx;
