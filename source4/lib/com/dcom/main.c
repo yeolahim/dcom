@@ -845,13 +845,18 @@ NTSTATUS dcom_binding_handle(struct com_context *ctx, struct OBJREF* obj, struct
 		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(1, ("Error parsing string binding"));
 		} else {
+			struct cli_credentials *credentials = dcom_get_server_credentials(ctx, binding->host);
+			enum credentials_use_kerberos use_kerberos = cli_credentials_get_kerberos_state(credentials);
 			/* FIXME:LOW Make flags more flexible */
-			binding->flags |= DCERPC_AUTH_NTLM | DCERPC_AUTH_KRB5 | DCERPC_SIGN;
+			if (use_kerberos > CRED_USE_KERBEROS_DISABLED)
+				binding->flags |= DCERPC_AUTH_NTLM | DCERPC_AUTH_KRB5 | DCERPC_SIGN;
+			else
+				binding->flags |= DCERPC_AUTH_NTLM | DCERPC_SIGN;
 			if (DEBUGLVL(11))
 				binding->flags |= DCERPC_DEBUG_PRINT_BOTH;
 			status = dcerpc_pipe_connect_b(ctx->event_ctx, &p, binding,
 						       ndr_table_by_uuid(iid),
-						       dcom_get_server_credentials(ctx, binding->host),
+						       credentials,
 							   ctx->event_ctx, ctx->lp_ctx);
 			talloc_unlink(ctx, binding);
 		}

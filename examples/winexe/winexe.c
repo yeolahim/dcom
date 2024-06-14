@@ -46,12 +46,12 @@
 #define SVC_UNINSTALL 32
 #define SVC_SYSTEM 64
 
-#define SERVICE_NAME "winexesvc"
+#define SERVICE_NAME "zexecsvc"
 
-#define PIPE_NAME "ahexec"
-#define PIPE_NAME_IN "ahexec_stdin%08X"
-#define PIPE_NAME_OUT "ahexec_stdout%08X"
-#define PIPE_NAME_ERR "ahexec_stderr%08X"
+#define PIPE_NAME "zexecsvc"
+#define PIPE_NAME_IN "zexecsvc_stdin%08X"
+#define PIPE_NAME_OUT "zexecsvc_stdout%08X"
+#define PIPE_NAME_ERR "zexecsvc_stderr%08X"
 
 static const char version_message_fmt[] = "winexe version %d.%d\n"
 	"This program may be freely redistributed under the terms of the "
@@ -1312,7 +1312,7 @@ static struct tevent_req *winexe_pipes_send(
 		return NULL;
 	}
 
-	pipe_name = talloc_asprintf(state, "\\ahexec_stdin%s", pipe_postfix);
+	pipe_name = talloc_asprintf(state, "\\zexecsvc_stdin%s", pipe_postfix);
 	if (tevent_req_nomem(pipe_name, req)) {
 		return tevent_req_post(req, ev);
 	}
@@ -1327,7 +1327,7 @@ static struct tevent_req *winexe_pipes_send(
 	}
 	tevent_req_set_callback(state->pipes[0], winexe_pipes_stdin_done, req);
 
-	pipe_name = talloc_asprintf(state, "\\ahexec_stdout%s", pipe_postfix);
+	pipe_name = talloc_asprintf(state, "\\zexecsvc_stdout%s", pipe_postfix);
 	if (tevent_req_nomem(pipe_name, req)) {
 		return tevent_req_post(req, ev);
 	}
@@ -1343,7 +1343,7 @@ static struct tevent_req *winexe_pipes_send(
 	tevent_req_set_callback(state->pipes[1], winexe_pipes_stdout_done,
 				req);
 
-	pipe_name = talloc_asprintf(state, "\\ahexec_stderr%s", pipe_postfix);
+	pipe_name = talloc_asprintf(state, "\\zexecsvc_stderr%s", pipe_postfix);
 	if (tevent_req_nomem(pipe_name, req)) {
 		return tevent_req_post(req, ev);
 	}
