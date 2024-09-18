@@ -18,6 +18,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <dirent.h>
 
 #include "includes.h"
 #include "version.h"
@@ -65,6 +70,9 @@ struct program_options {
 	char *runas;
 	char *runas_file;
 	int flags;
+	char *upload;
+	char *download;
+	char *dir;
 };
 
 static void parse_args(int argc, const char *argv[],
@@ -148,6 +156,30 @@ static void parse_args(int argc, const char *argv[],
 				   "Determines which version (32-bit or 64-bit)"
 				   " of service will be installed.",
 			.argDescrip = "0|1|2",
+		},{
+			.longName = "upload",
+			.shortName = 0,
+			.argInfo = POPT_ARG_STRING,
+			.arg = &options->upload,
+			.val = 0,
+			.descrip = "Path to upload.",
+			.argDescrip = "PATH",
+		},{
+			.longName = "download",
+			.shortName = 0,
+			.argInfo = POPT_ARG_STRING,
+			.arg = &options->download,
+			.val = 0,
+			.descrip = "File name to download.",
+			.argDescrip = "FILE",
+		},{
+			.longName = "dir",
+			.shortName = 0,
+			.argInfo = POPT_ARG_STRING,
+			.arg = &options->dir,
+			.val = 0,
+			.descrip = "Directory name to upload/from download.",
+			.argDescrip = "FILE",
 		},
 		POPT_COMMON_SAMBA
 		POPT_COMMON_CREDENTIALS
@@ -202,7 +234,7 @@ static void parse_args(int argc, const char *argv[],
 		}
 	}
 
-	if (argc_new != 2 || argv_new[0][0] != '/' || argv_new[0][1] != '/') {
+	if (argc_new < 1 || argv_new[0][0] != '/' || argv_new[0][1] != '/') {
 		fprintf(stderr, version_message_fmt, SAMBA_VERSION_MAJOR,
 			SAMBA_VERSION_MINOR);
 		poptPrintHelp(pc, stdout, 0);
@@ -257,11 +289,12 @@ static void parse_args(int argc, const char *argv[],
 		exit(1);
 	}
 	options->port = port;
-	options->cmd = talloc_strdup(mem_ctx, argv_new[1]);
-	if (options->cmd == NULL) {
-		DBG_ERR("Out of memory\n");
-		exit(1);
-	}
+	if (argc_new > 1)
+		options->cmd = talloc_strdup(mem_ctx, argv_new[1]);
+	// if (options->cmd == NULL) {
+	// 	DBG_ERR("Out of memory\n");
+	// 	exit(1);
+	// }
 
 	poptFreeContext(pc);
 
@@ -278,6 +311,332 @@ static void parse_args(int argc, const char *argv[],
 	if (flag_uninstall) {
 		options->flags |= SVC_UNINSTALL;
 	}
+}
+
+static NTSTATUS winexe_file_upload(
+	TALLOC_CTX *frame,
+	struct cli_state *cli,
+	int dir,
+	const char *source,
+	const char *targetdir,
+	int flags)
+{
+	char *target = NULL;
+	uint16_t fnum = 0xffff;
+	int fd = -1;
+	struct stat pathstat;
+	NTSTATUS status = NT_STATUS_DATA_ERROR;
+	DATA_BLOB binary = {NULL, 0};
+
+	if (-1 == dir)
+		fd = open(source, O_RDONLY);
+	else
+		fd = openat(dir, source, O_RDONLY);
+
+	if (-1 == fd) {
+		DBG_WARNING("Could not open %s: %d [%d]\n", source, errno, dir);
+		goto done;
+	}
+
+	if (-1 == fstat(fd, &pathstat)) {
+		DBG_WARNING("Could not stat %s: %d\n", source, errno);
+		goto done;
+	}
+	if (S_ISLNK(pathstat.st_mode) || S_ISREG(pathstat.st_mode)) {
+		binary.length = pathstat.st_size;
+		binary.data = mmap(NULL, binary.length, PROT_READ, MAP_PRIVATE, fd, 0);
+		if (MAP_FAILED == binary.data) {
+			DBG_WARNING("Could not map %s: %d\n", source, errno);
+			goto done;
+		}
+		target = talloc_asprintf(frame, "%s", source);
+		target = basename(target);
+		target = talloc_asprintf(frame, "%s\\%s", targetdir, target);
+		if (flags & SVC_FORCE_UPLOAD) {
+			status = cli_unlink(cli, target, 0);
+			if (!NT_STATUS_IS_OK(status)) {
+				DBG_WARNING("cli_unlink failed: %s\n",
+						nt_errstr(status));
+			}
+		}
+		status = cli_ntcreate(
+			cli,
+			target,
+			0,			/* CreatFlags */
+			SEC_FILE_WRITE_DATA,    /* DesiredAccess */
+			FILE_ATTRIBUTE_NORMAL,  /* FileAttributes */
+			FILE_SHARE_WRITE|FILE_SHARE_READ, /* ShareAccess */
+			FILE_OPEN_IF,		 /* CreateDisposition */
+			FILE_NON_DIRECTORY_FILE, /* CreateOptions */
+			0,			 /* SecurityFlags */
+			&fnum,
+			NULL);		/* CreateReturns */
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("Could not create %s: %s\n", target,
+					nt_errstr(status));
+			goto done;
+		}
+
+		status = cli_writeall(
+			cli,
+			fnum,
+			0,
+			binary.data,
+			0,
+			binary.length,
+			NULL);
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("Could not write file: %s\n", nt_errstr(status));
+			goto done;
+		}
+	}
+done:
+	if (fnum != 0xffff) {
+		status = cli_close(cli, fnum);
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("Close(%"PRIu16") failed for %s: %s\n",
+				    fnum,
+				    target,
+				    nt_errstr(status));
+		}
+	}
+	if (binary.data != MAP_FAILED) {
+		munmap(binary.data, binary.length);
+	}
+	if (fd != -1) {
+		close(fd);
+	}
+	return status;
+}
+
+static NTSTATUS winexe_upload(
+	TALLOC_CTX *frame,
+	const char *hostname,
+	int port,
+	const char *source,
+	const char *targetdir,
+	struct cli_credentials *credentials,
+	int flags)
+{
+	struct cli_state *cli;
+	uint16_t fnum = 0xffff;
+	int dfd = -1;
+	DIR* srcdir = NULL;
+	struct dirent *entry = NULL;
+	NTSTATUS status;
+	DATA_BLOB binary = {NULL, 0};
+	char *target = NULL;
+	const char *filename = source;
+	struct stat pathstat;
+
+	status = cli_full_connection_creds(
+		&cli,
+		NULL,
+		hostname,
+		NULL,
+		port,
+		"ADMIN$",
+		"?????",
+		credentials,
+		0);
+	if (!NT_STATUS_IS_OK(status)) {
+		DBG_WARNING("cli_full_connection_creds failed: %s\n",
+			    nt_errstr(status));
+		return status;
+	}
+
+	status = cli_ntcreate(
+		cli,
+		targetdir,
+		0,			/* CreatFlags */
+		SEC_DIR_LIST|SEC_DIR_ADD_FILE|SEC_DIR_TRAVERSE|SEC_DIR_ADD_SUBDIR,    /* DesiredAccess */
+		FILE_ATTRIBUTE_NORMAL,  /* FileAttributes */
+		FILE_SHARE_WRITE|FILE_SHARE_READ, /* ShareAccess */
+		FILE_OPEN_IF,		 /* CreateDisposition */
+		FILE_DIRECTORY_FILE, /* CreateOptions */
+		0,			 /* SecurityFlags */
+		&fnum,
+		NULL);		/* CreateReturns */
+	if (!NT_STATUS_IS_OK(status)) {
+		DBG_WARNING("Could not create %s: %s\n", targetdir,
+			nt_errstr(status));
+		goto done;
+	}
+	if (fnum != 0xffff) {
+		status = cli_close(cli, fnum);
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("Close(%"PRIu16") failed for %s: %s\n",
+				fnum,
+				target,
+				nt_errstr(status));
+		}
+	}
+	//
+	if ((0 == stat(source, &pathstat)) && S_ISDIR(pathstat.st_mode)) {
+		srcdir = opendir(source);
+		if (NULL == srcdir) {
+			DBG_WARNING("Could not open %s: %d\n", source, errno);
+			goto done;
+		}
+		dfd = dirfd(srcdir);
+		if (-1 == dfd) {
+			DBG_WARNING("Could not stat %s: %d\n", source, errno);
+			goto done;
+		}
+		while (true) {
+			entry = readdir(srcdir);
+			if (NULL == entry)
+				break;
+			if ((DT_LNK == entry->d_type) || (DT_REG == entry->d_type)) {
+				status = winexe_file_upload(frame, cli, dfd, entry->d_name, targetdir, flags);
+				if (!NT_STATUS_IS_OK(status)) {
+					DBG_WARNING("Could not upload %s/%s: %d \n", source, entry->d_name, errno);
+					goto done;
+				}
+			}
+		}
+	} else {
+		status = winexe_file_upload(frame, cli, dfd, source, targetdir, flags);
+	}
+	// 	if ()
+	//
+done:
+	if (NULL != srcdir) {
+		closedir(srcdir);
+	}
+	TALLOC_FREE(cli);
+	return status;
+}
+
+static NTSTATUS winexe_file_download(
+	struct cli_state *cli,
+	uint16_t fnum,
+	const char *source)
+{
+	off_t offset = 0;
+	uint8_t* buffer = NULL;
+	int fd = -1;
+	NTSTATUS status;
+
+	fd = open(source, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP);
+	if (-1 == fd) {
+		DBG_WARNING("Could not open %s: %d\n", source, errno);
+		goto done;
+	}
+	buffer = malloc(4096*16);
+	if (NULL == buffer) {
+		DBG_WARNING("Could not allocate buffer: %d\n", errno);
+		goto done;
+	}
+	while (true)
+	{
+		size_t nread = 0;
+		status = cli_read(
+			cli,
+			fnum,
+			buffer,
+			offset,
+			4096*16,
+			&nread);
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("Could not read file %s: %s\n"
+				, source, nt_errstr(status));
+			goto done;
+		}
+		if (nread == 0)
+			goto done;
+		{
+			uint8_t* writeptr = buffer;
+			ssize_t written = 0;
+			for (ssize_t nwrite = nread; nwrite > 0; nwrite -= written) {
+				written = write(fd, writeptr, (size_t)nwrite);
+				if (-1 == written) {
+					DBG_WARNING("Could not read file %s: %s\n"
+						, source, nt_errstr(status));
+					goto done;
+				}
+				writeptr += written;
+			}
+		}
+		offset += nread;
+	}
+done:
+	if (fd != -1) {
+		close(fd);
+	}
+	if (buffer != NULL) {
+		free(buffer);
+	}
+	return status;
+}
+
+static NTSTATUS winexe_download(
+	TALLOC_CTX *frame,
+	const char *hostname,
+	int port,
+	const char *filename,
+	const char *sourcedir,
+	struct cli_credentials *credentials,
+	int flags)
+{
+	struct cli_state *cli;
+	uint16_t fnum = 0xffff;
+	NTSTATUS status = NT_STATUS_DATA_ERROR;
+	char *source = NULL;
+
+	status = cli_full_connection_creds(
+		&cli,
+		NULL,
+		hostname,
+		NULL,
+		port,
+		"ADMIN$",
+		"?????",
+		credentials,
+		0);
+	if (!NT_STATUS_IS_OK(status)) {
+		DBG_WARNING("cli_full_connection_creds failed: %s\n",
+			    nt_errstr(status));
+		return status;
+	}
+
+	source = talloc_asprintf(frame, "%s\\%s", sourcedir, filename);
+	status = cli_ntcreate(
+		cli,
+		source,
+		0,			/* CreatFlags */
+		SEC_FILE_READ_DATA,    /* DesiredAccess */
+		FILE_ATTRIBUTE_NORMAL,  /* FileAttributes */
+		FILE_SHARE_READ, /* ShareAccess */
+		FILE_OPEN,		 /* CreateDisposition */
+		FILE_NON_DIRECTORY_FILE, /* CreateOptions */
+		0,			 /* SecurityFlags */
+		&fnum,
+		NULL);		/* CreateReturns */
+	if (!NT_STATUS_IS_OK(status)) {
+		DBG_WARNING("Could not open %s: %s\n", source,
+			    nt_errstr(status));
+		goto done;
+	}
+	status = winexe_file_download(cli, fnum, filename);
+	if (!NT_STATUS_IS_OK(status)) {
+		DBG_WARNING("Could not download: %s -> %s: %s\n", source, filename,
+			    nt_errstr(status));
+		goto done;
+	}
+done:
+	if (fnum != 0xffff) {
+		status = cli_close(cli, fnum);
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("Close(%"PRIu16") failed for %s: %s\n",
+				fnum,
+				source,
+				nt_errstr(status));
+		}
+	}
+
+	TALLOC_FREE(cli);
+	return status;
 }
 
 static NTSTATUS winexe_svc_upload(
@@ -1848,11 +2207,6 @@ int main(int argc, char *argv[])
 
 	samba_cmdline_burn(argc, argv);
 
-	if (options.cmd == NULL) {
-		fprintf(stderr, "no cmd given\n");
-		goto done;
-	}
-
 	service_filename = talloc_asprintf(frame, "%s.exe", service_name);
 	if (service_filename == NULL) {
 		DBG_WARNING("talloc_asprintf failed\n");
@@ -1892,15 +2246,53 @@ int main(int argc, char *argv[])
 		goto done;
 	}
 
-	status = winexe_ctrl(cli, options.cmd, &return_code);
-	if (NT_STATUS_EQUAL(status, NT_STATUS_PIPE_DISCONNECTED)) {
-		/* Normal finish */
-		status = NT_STATUS_OK;
+	if (options.dir == NULL) {
+		options.dir = "InstallServer";
 	}
-	if (!NT_STATUS_IS_OK(status)) {
-		DBG_WARNING("cli_ctrl failed: %s\n",
-			    nt_errstr(status));
-		goto done;
+
+	if (options.upload != NULL) {
+		status = winexe_upload(
+			frame,
+			options.hostname,
+			options.port,
+			options.upload,
+			options.dir,
+			options.credentials,
+			options.flags);
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("winexe_upload failed: %s\n",
+					nt_errstr(status));
+			goto done;
+		}
+	}
+
+	if (options.cmd != NULL) {
+		status = winexe_ctrl(cli, options.cmd, &return_code);
+		if (NT_STATUS_EQUAL(status, NT_STATUS_PIPE_DISCONNECTED)) {
+			/* Normal finish */
+			status = NT_STATUS_OK;
+		}
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("cli_ctrl failed: %s\n",
+					nt_errstr(status));
+			goto done;
+		}
+	}
+
+	if (options.download != NULL) {
+		status = winexe_download(
+			frame,
+			options.hostname,
+			options.port,
+			options.download,
+			options.dir,
+			options.credentials,
+			options.flags);
+		if (!NT_STATUS_IS_OK(status)) {
+			DBG_WARNING("winexe_upload failed: %s\n",
+					nt_errstr(status));
+			goto done;
+		}
 	}
 
 	if (options.flags & SVC_UNINSTALL) {
