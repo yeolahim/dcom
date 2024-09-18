@@ -27,15 +27,24 @@
     <ClInclude Include="winexesvc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="winexecsvc_wbem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="winexesvc.cpp">
+    <ClCompile Include="winexesvc.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="winexesvc.c">
+    <ClCompile Include="winexesvc_computer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="winexesvc_product.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="winexecsvc_wbem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

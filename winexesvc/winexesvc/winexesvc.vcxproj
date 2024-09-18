@@ -150,12 +150,15 @@
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="winexecsvc_wbem.h" />
     <ClInclude Include="winexesvc.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="winexecsvc_wbem.cpp" />
     <ClCompile Include="winexesvc.c" />
-    <ClCompile Include="winexesvc.cpp" />
+    <ClCompile Include="winexesvc_computer.cpp" />
+    <ClCompile Include="winexesvc_product.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

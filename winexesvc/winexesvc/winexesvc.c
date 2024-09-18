@@ -31,6 +31,8 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
+#include <wbemcli.h>
+
 #include "winexesvc.h"
 
 #define BUFSIZE 256
@@ -428,6 +430,11 @@ static int cmd_run(connection_context *c)
 	si.hStdError = c->perr;
 	si.dwFlags |= STARTF_USESTDHANDLES;
 
+	if ('@' == *cmdline) {
+		sprintf(buf, "%s %s", GetCommandLineA(), cmdline);
+		cmdline = buf;
+	}
+
 	if (CreateProcessAsUser(
 		c->token,
 		NULL,
@@ -735,6 +742,8 @@ static void WINAPI winexesvcStart(DWORD argc, LPTSTR * argv)
 	return;
 }
 
+static int winexesvccmd(int argc, char *argv[]);
+
 int main(int argc, char *argv[])
 {
 	SERVICE_TABLE_ENTRY DispatchTable[] = {
@@ -742,6 +751,9 @@ int main(int argc, char *argv[])
 		{NULL, NULL}
 	};
 
+	if ((argc > 1) && ('@' == argv[1][0])) {
+		return winexesvccmd(argc, argv);
+	}
 	dbg(SERVICE_NAME ": StartServiceCtrlDispatcher %d\n", GetLastError());
 	if (!StartServiceCtrlDispatcher(DispatchTable)) {
 		dbg(SERVICE_NAME
@@ -749,4 +761,33 @@ int main(int argc, char *argv[])
 		GetLastError());
 	}
 	return 0;
+}
+
+extern int winexesvc_computer(int argc, char *argv[]);
+extern int winexesvc_product(int argc, char *argv[]);
+
+static int winexesvccmd(int argc, char *argv[]) {
+	char *cmd = argv[1];
+	int result = 0;
+	int i = 0;
+	fprintf(stdout, "{\n");
+	fprintf(stdout, "  \"cmd\" : \"%s\",\n", cmd);
+	fprintf(stdout, "  \"args\" : [");
+	for (i = 2; i < argc; ++i) {
+		if (i != 2)
+			fprintf(stdout, ", ");
+		fprintf(stdout, "\"%s\"", argv[i]);
+	}
+	fprintf(stdout, "],\n");
+	fprintf(stdout, "  \"result\" : ");
+	if (0 == strcmp(cmd, "@computer")) {
+		result = winexesvc_computer(argc, argv);
+	} else if (0 == strcmp(cmd, "@product")) {
+		result = winexesvc_product(argc, argv);
+	} else {
+		fprintf(stdout, "null\n");
+		fprintf(stdout, "  \"error\" : \"1\"");
+	}
+	fprintf(stdout, "\n}\n");
+	return result;
 }
